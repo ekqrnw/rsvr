@@ -194,22 +194,22 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	static final String WINDOWS_VERSION_HEADER = "#version 430\n";
 
 	static final com.vr.Shader PROGRAM = new com.vr.Shader()
-		.add(GL43C.GL_VERTEX_SHADER, "resources/vert.glsl")
-		.add(GL43C.GL_GEOMETRY_SHADER, "resources/geom.glsl")
-		.add(GL43C.GL_FRAGMENT_SHADER, "resources/frag.glsl");
+		.add(GL43C.GL_VERTEX_SHADER, "vert.glsl")
+		.add(GL43C.GL_GEOMETRY_SHADER, "geom.glsl")
+		.add(GL43C.GL_FRAGMENT_SHADER, "frag.glsl");
 
 	static final com.vr.Shader COMPUTE_PROGRAM = new com.vr.Shader()
-		.add(GL43C.GL_COMPUTE_SHADER, "resources/comp.glsl");
+		.add(GL43C.GL_COMPUTE_SHADER, "comp.glsl");
 
 	static final com.vr.Shader SMALL_COMPUTE_PROGRAM = new com.vr.Shader()
-		.add(GL43C.GL_COMPUTE_SHADER, "resources/comp.glsl");
+		.add(GL43C.GL_COMPUTE_SHADER, "comp.glsl");
 
 	static final com.vr.Shader UNORDERED_COMPUTE_PROGRAM = new com.vr.Shader()
-		.add(GL43C.GL_COMPUTE_SHADER, "resources/comp_unordered.glsl");
+		.add(GL43C.GL_COMPUTE_SHADER, "comp_unordered.glsl");
 
 	static final com.vr.Shader UI_PROGRAM = new Shader()
-		.add(GL43C.GL_VERTEX_SHADER, "resources/vertui.glsl")
-		.add(GL43C.GL_FRAGMENT_SHADER, "resources/fragui.glsl");
+		.add(GL43C.GL_VERTEX_SHADER, "vertui.glsl")
+		.add(GL43C.GL_FRAGMENT_SHADER, "fragui.glsl");
 
 	private int glProgram;
 	private int glComputeProgram;
