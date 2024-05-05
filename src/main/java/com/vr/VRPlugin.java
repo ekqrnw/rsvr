@@ -338,7 +338,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	@VisibleForTesting
 	boolean shouldDraw(Renderable renderable, boolean drawingUI) {
-		return ((renderable instanceof Player || renderable instanceof NPC) && !drawingUI);
+		return !((renderable instanceof Player || renderable instanceof NPC) && drawingUI);
 	}
 
 	public void check(int result) throws IllegalStateException {
