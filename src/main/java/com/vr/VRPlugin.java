@@ -30,6 +30,8 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.MenuOpened;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.hooks.DrawCallbacks;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.callback.Hooks;
@@ -46,7 +48,10 @@ import com.vr.template.Template;
 import net.runelite.client.ui.ClientUI;
 import net.runelite.client.ui.DrawManager;
 import net.runelite.client.util.OSType;
+import net.runelite.rlawt.AWTContext;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
@@ -62,7 +67,10 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.nio.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -104,6 +112,26 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	boolean                        useEglGraphicsBinding;
 	XrDebugUtilsMessengerEXT       xrDebugMessenger;
 	XrSpace                        xrAppSpace;  //The real world space in which the program runs
+
+	XrSpace                        xrHeadSpace;
+
+	XrSpace                        leftHandSpace;
+
+	XrSpace                        rightHandSpace;
+
+	XrActionSet                    xrActionSet;
+
+	XrAction                       rightClick;
+	XrAction                       leftClick;
+	XrAction                       middleClick;
+	XrAction                       pose;
+
+	XrPosef                        leftPose;
+	XrPosef                        rightPose;
+
+	long                           leftHandPath;
+	long                           rightHandPath;
+
 	long                           glColorFormat;
 	XrView.Buffer                  views;       //Each view reperesents an eye in the headset with views[0] being left and views[1] being right
 	Swapchain[]                    swapchains;  //One swapchain per view
@@ -113,6 +141,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private static Matrix4f modelviewMatrix  = new Matrix4f();
 	private static Matrix4f projectionMatrix = new Matrix4f();
 	private static Matrix4f viewMatrix       = new Matrix4f();
+
+	private static Matrix4f handMatrix       = new Matrix4f();
+
+	private static Matrix4f cursorMatrix       = new Matrix4f();
 
 	//Runtime
 	XrEventDataBuffer eventDataBuffer;
@@ -181,7 +213,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private ComputeMode computeMode = ComputeMode.NONE;
 
 	private Canvas canvas;
-	//private AWTContext awtContext;
+	private AWTContext awtContext;
 	private Callback debugCallback;
 
 	private GLCapabilities glCapabilities;
@@ -197,6 +229,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		.add(GL43C.GL_VERTEX_SHADER, "vert.glsl")
 		.add(GL43C.GL_GEOMETRY_SHADER, "geom.glsl")
 		.add(GL43C.GL_FRAGMENT_SHADER, "frag.glsl");
+
+	static final com.vr.Shader HAND_PROGRAM = new com.vr.Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "verthands.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fraghands.glsl");
 
 	static final com.vr.Shader COMPUTE_PROGRAM = new com.vr.Shader()
 		.add(GL43C.GL_COMPUTE_SHADER, "comp.glsl");
@@ -217,6 +253,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private int glUnorderedComputeProgram;
 	private int glUiProgram;
 
+	private int glHandProgram;
+
 	private int vaoCompute;
 	private int vaoTemp;
 
@@ -224,7 +262,14 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private int interfacePbo;
 
 	private int vaoUiHandle;
+
+	private int vaoHandHandle;
+	private int vaoHandIndHandle;
 	private int vboUiHandle;
+
+	private int vboHandHandle;
+
+	private int vboHandIndHandle;
 
 	private int fboSceneHandle;
 	private int rboSceneHandle;
@@ -326,11 +371,22 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private int uniUiView;
 
+	private int uniHandProjection;
+
+	private int uniHandView;
+	private int uniCursor;
+
+	private int uniHandColor;
+
 	private int uniProjection;
 
 	private int uniView;
 
 	private int uniModel;
+
+	private VRRobot robot;
+
+	private HandSelectState state = HandSelectState.IDLE;
 
 	private final Hooks.RenderableDrawListener drawListener = this::shouldDraw;
 
@@ -528,6 +584,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				throw new IllegalStateException("Failed to initialize GLFW.");
 			}
 
+			glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, majorVersionToRequest);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minorVersionToRequest);
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -535,7 +592,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			if (useEglGraphicsBinding) {
 				glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
 			}
-			window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+			window = glfwCreateWindow(640, 480, "VR Runescape", NULL, NULL);
 			glfwMakeContextCurrent(window);
 
 			glCapabilities = GL.createCapabilities();
@@ -558,6 +615,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			{
 				sceneUploader.initSortingBuffers();
 			}
+			//sceneUploader.setStack(stack);
 
 			// Check if OpenGL version is supported by OpenXR runtime
 			int actualMajorVersion = glGetInteger(GL_MAJOR_VERSION);
@@ -644,6 +702,199 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			));
 
 			xrAppSpace = new XrSpace(pp.get(0), xrSession);
+
+			check(xrCreateReferenceSpace(
+					xrSession,
+					XrReferenceSpaceCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.referenceSpaceType(XR_REFERENCE_SPACE_TYPE_VIEW)
+							.poseInReferenceSpace(XrPosef.malloc(stack)
+									.orientation(XrQuaternionf.malloc(stack)
+											.x(0)
+											.y(0)
+											.z(0)
+											.w(1))
+									.position$(XrVector3f.calloc(stack))),
+					pp
+			));
+
+			xrHeadSpace = new XrSpace(pp.get(0), xrSession);
+		}
+	}
+
+	public void registerXRControllers(){
+		try (MemoryStack stack = stackPush()) {
+			PointerBuffer pp = stack.mallocPointer(1);
+
+			check(xrCreateActionSet(
+					xrInstance,
+					XrActionSetCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionSetName(GpuByteBuffer.getBuffer("controller")),
+					pp
+			));
+
+			xrActionSet = new XrActionSet(pp.get(0),xrInstance);
+
+			LongBuffer buffer = stack.mallocLong(1);
+			LongBuffer buffer2 = stack.mallocLong(1);
+			check(xrStringToPath(xrInstance, "/user/hand/left", buffer));
+			check(xrStringToPath(xrInstance, "/user/hand/right", buffer2));
+
+			LongBuffer uniBuffer = stack.mallocLong(2)
+					.put(0, buffer.get(0))
+					.put(1,buffer2.get(0));
+
+			leftHandPath = buffer.get(0);
+			rightHandPath = buffer2.get(0);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("right_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("Right Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			rightClick = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("left_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("Left Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			leftClick = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("middle_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("Middle Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			middleClick = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("pose"))
+							.localizedActionName(GpuByteBuffer.getBuffer("Pose"))
+							.actionType(XR_ACTION_TYPE_POSE_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			pose = new XrAction(pp.get(0),xrActionSet);
+
+			LongBuffer buffer3 = stack.mallocLong(1);
+			//check(xrStringToPath(xrInstance, "/interaction_profiles/khr/simple_controller", buffer3));
+			check(xrStringToPath(xrInstance, "/interaction_profiles/oculus/touch_controller", buffer3));
+
+			LongBuffer buffer4 = stack.mallocLong(1);
+			LongBuffer buffer5 = stack.mallocLong(1);
+			LongBuffer buffer6 = stack.mallocLong(1);
+			LongBuffer buffer7 = stack.mallocLong(1);
+			LongBuffer buffer8 = stack.mallocLong(1);
+
+			check(xrStringToPath(xrInstance, "/user/hand/left/input/aim/pose", buffer4));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/aim/pose", buffer5));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/trigger/value", buffer6));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/squeeze/value", buffer7));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/thumbstick/click", buffer8));
+
+			//TODO: THIS DOES IT
+			XrActionSuggestedBinding.Buffer suggested = XrActionSuggestedBinding.malloc(5, stack)
+					.put(0,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer4.get(0)))
+					.put(1,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer5.get(0)))
+					.put(2,XrActionSuggestedBinding.malloc(stack).action(leftClick).binding(buffer6.get(0)))
+					.put(3,XrActionSuggestedBinding.malloc(stack).action(rightClick).binding(buffer7.get(0)))
+					.put(4,XrActionSuggestedBinding.malloc(stack).action(middleClick).binding(buffer8.get(0)))
+			;
+
+			check(xrSuggestInteractionProfileBindings(
+					xrInstance,
+					XrInteractionProfileSuggestedBinding.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.interactionProfile(buffer3.get(0))
+							.suggestedBindings(suggested)
+			));
+		}
+	}
+
+	public void registerXRControllerActions(){
+		try (MemoryStack stack = stackPush()) {
+			PointerBuffer pp = stack.mallocPointer(1);
+
+			check(xrCreateActionSpace(
+					xrSession,
+					XrActionSpaceCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(pose)
+							.subactionPath(leftHandPath)
+							.poseInActionSpace(XrPosef.malloc(stack)
+									.orientation(XrQuaternionf.malloc(stack)
+											.x(0)
+											.y(0)
+											.z(0)
+											.w(1))
+									.position$(XrVector3f.calloc(stack))),
+					pp
+			));
+
+			leftHandSpace = new XrSpace(pp.get(0), xrSession);
+
+			check(xrCreateActionSpace(
+					xrSession,
+					XrActionSpaceCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(pose)
+							.subactionPath(rightHandPath)
+							.poseInActionSpace(XrPosef.malloc(stack)
+									.orientation(XrQuaternionf.malloc(stack)
+											.x(0)
+											.y(0)
+											.z(0)
+											.w(1))
+									.position$(XrVector3f.calloc(stack))),
+					pp
+			));
+
+			rightHandSpace = new XrSpace(pp.get(0), xrSession);
+
+			check(xrAttachSessionActionSets(
+					xrSession,
+					XrSessionActionSetsAttachInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionSets(PointerBuffer.allocateDirect(1).put(xrActionSet.address()).flip())
+			));
 		}
 	}
 
@@ -894,6 +1145,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				//AWTContext.loadNatives();
 
 				canvas = client.getCanvas();
+				robot = new VRRobot(canvas);
 
 				/*synchronized (canvas.getTreeLock())
 				{
@@ -919,8 +1171,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				Configuration.SHARED_LIBRARY_EXTRACT_DIRECTORY.set("lwjgl-rl");
 
 				createOpenXRInstance();
+				registerXRControllers();
 				initializeOpenXRSystem();
 				initializeAndBindOpenGL();
+				registerXRControllerActions();
 
 				lwjglInitted = true;
 
@@ -987,14 +1241,6 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 				////openXR = new HelloOpenXRGL();
 				////openXR.XR_BEGIN();
-
-				if (client.getGameState() == GameState.LOGGED_IN)
-				{
-					Scene scene = client.getScene();
-					loadScene(scene);
-					swapScene(scene);
-				}
-
 				createXRReferenceSpace();
 				createXRSwapchains();
 				createOpenGLResourses();
@@ -1011,6 +1257,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 						// Throttle loop since xrWaitFrame won't be called.
 						Thread.sleep(250);
 					}
+				}
+
+				if (client.getGameState() == GameState.LOGGED_IN)
+				{
+					Scene scene = client.getScene();
+					loadScene(scene);
+					swapScene(scene);
 				}
 			}
 			catch (Throwable e)
@@ -1220,6 +1473,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		Template template = createTemplate(-1, -1);
 		glProgram = PROGRAM.compile(template);
 		glUiProgram = UI_PROGRAM.compile(template);
+		glHandProgram = HAND_PROGRAM.compile(template);
 
 		if (computeMode == ComputeMode.OPENGL)
 		{
@@ -1267,6 +1521,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		uniUiProjection = GL43C.glGetUniformLocation(glUiProgram, "projection");
 		uniUiView = GL43C.glGetUniformLocation(glUiProgram, "viewMatrix");
 
+		uniHandProjection = GL43C.glGetUniformLocation(glHandProgram, "projection");
+		uniHandView = GL43C.glGetUniformLocation(glHandProgram, "viewMatrix");
+		uniCursor = GL43C.glGetUniformLocation(glHandProgram, "cursor");
+		uniHandColor = GL43C.glGetUniformLocation(glHandProgram, "color");
+
 		if (computeMode == ComputeMode.OPENGL)
 		{
 			uniBlockSmall = GL43C.glGetUniformBlockIndex(glSmallComputeProgram, "uniforms");
@@ -1290,6 +1549,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		GL43C.glDeleteProgram(glUiProgram);
 		glUiProgram = -1;
+
+		GL43C.glDeleteProgram(glHandProgram);
+		glHandProgram = -1;
 	}
 
 	private void initVao()
@@ -1345,6 +1607,40 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glVertexAttribPointer(1, 2, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 3 * Float.BYTES);
 		GL43C.glEnableVertexAttribArray(1);
 
+		// Create Hand VAO
+		vaoHandHandle = GL43C.glGenVertexArrays();
+		// Create Hand buffer
+		vboHandHandle = GL43C.glGenBuffers();
+		GL43C.glBindVertexArray(vaoHandHandle);
+
+		FloatBuffer vboHandBuf = com.vr.GpuFloatBuffer.allocateDirect(3 * 15);
+		//TODO:figure out placement for this
+		vboHandBuf.put(new float[]{
+				// positions     // texture coords
+				0.0f, 0.002f, 10.0f, // top right
+				0.0f, -0.002f, -10.0f,  // bottom right
+				0.0f, -0.002f, 10.0f,  // bottom left
+				0.0f, 0.002f, 10.0f,  // top left
+				0.0f, 0.002f, -10.0f,  // top left
+				0.0f, -0.002f, -10.0f,  // top left
+				0.002f, 0.0f, 10.0f,  // top right
+				-0.002f, 0.0f, -10.0f,  // bottom right
+				-0.002f, 0.0f, 10.0f,  // bottom left
+				0.002f, 0.0f, 10.0f,   // top left
+				0.002f, 0.0f, -10.0f,  // top left
+				-0.002f, 0.0f, -10.0f,  // top left
+				-0.01f, 0.0f, 0.0f,
+				0.01f, 0.0f, 0.0f,
+				0.0f, 0.0f, -0.02f
+		});
+		vboHandBuf.rewind();
+		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, vboHandHandle);
+		GL43C.glBufferData(GL43C.GL_ARRAY_BUFFER, vboHandBuf, GL43C.GL_STATIC_DRAW);
+
+		// position attribute
+		GL43C.glVertexAttribPointer(0, 3, GL43C.GL_FLOAT, false, 3 * Float.BYTES, 0);
+		GL43C.glEnableVertexAttribArray(0);
+
 		// unbind VBO
 		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, 0);
 	}
@@ -1362,6 +1658,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		GL43C.glDeleteVertexArrays(vaoUiHandle);
 		vaoUiHandle = -1;
+
+		GL43C.glDeleteVertexArrays(vaoHandHandle);
+		vaoHandHandle = -1;
 	}
 
 	private void initBuffers()
@@ -1783,6 +2082,90 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					frameState
 			));
 
+			check(xrSyncActions(
+					xrSession,
+					XrActionsSyncInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.activeActionSets(
+									XrActiveActionSet
+											.malloc(2)
+											.put(0,XrActiveActionSet.malloc(stack).actionSet(xrActionSet).subactionPath(leftHandPath))
+											.put(1,XrActiveActionSet.malloc(stack).actionSet(xrActionSet).subactionPath(rightHandPath))
+							)
+			));
+
+			XrActionStatePose poseL = XrActionStatePose.malloc(stack).type$Default().next(NULL);
+			XrActionStatePose poseR = XrActionStatePose.malloc(stack).type$Default().next(NULL);
+			check(xrGetActionStatePose(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(pose)
+							.subactionPath(leftHandPath),
+					poseL
+			));
+			check(xrGetActionStatePose(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(pose)
+							.subactionPath(rightHandPath),
+					poseR
+			));
+			if(poseL.isActive()){
+				XrSpaceLocation locL = XrSpaceLocation.malloc(stack).type$Default().next(NULL);
+				check(xrLocateSpace(leftHandSpace, xrAppSpace, frameState.predictedDisplayTime(), locL));
+				leftPose = locL.pose();
+			}
+			if(poseR.isActive()){
+				XrSpaceLocation locR = XrSpaceLocation.malloc(stack).type$Default().next(NULL);
+				check(xrLocateSpace(rightHandSpace, xrAppSpace, frameState.predictedDisplayTime(), locR));
+				rightPose = locR.pose();
+			}
+
+			XrActionStateBoolean lClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			XrActionStateBoolean rClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			XrActionStateBoolean mClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(leftClick)
+							.subactionPath(rightHandPath),
+					lClick
+			));
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(rightClick)
+							.subactionPath(rightHandPath),
+					rClick
+			));
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(middleClick)
+							.subactionPath(rightHandPath),
+					mClick
+			));
+			if(lClick.changedSinceLastSync()){
+				robot.leftClick(lClick.currentState());
+			}
+			if(rClick.changedSinceLastSync()){
+				robot.rightClick(rClick.currentState());
+			}
+			if(mClick.changedSinceLastSync()){
+				robot.middleClick(mClick.currentState());
+			}
+
 			check(xrBeginFrame(
 					xrSession,
 					XrFrameBeginInfo.calloc(stack)
@@ -1795,9 +2178,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			PointerBuffer layers = stack.callocPointer(1);
 
 			boolean didRender = false;
-			System.out.println(frameState.shouldRender()+" "+frameState.predictedDisplayTime());
+			//System.out.println(frameState.shouldRender()+" "+frameState.predictedDisplayTime());
 			if (frameState.shouldRender()) {
-				if (renderLayerOpenXR(sky, brightness, gameState,stack, frameState.predictedDisplayTime(), layerProjection, viewportWidth, viewportHeight, overlayColor)) {
+				if (renderLayerOpenXR(sky, brightness, gameState, stack, frameState.predictedDisplayTime(), layerProjection, viewportWidth, viewportHeight, overlayColor)) {
 					layers.put(0, layerProjection);
 					didRender = true;
 				} else {
@@ -1806,6 +2189,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			} else {
 				System.out.println("Shouldn't render");
 			}
+			//System.out.println(stack.getFrameIndex()+" "+stack.getSize()+" "+stack.getAddress());
 
 			check(xrEndFrame(
 					xrSession,
@@ -1820,7 +2204,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}
 	}
 
-	private boolean renderLayerOpenXR(int sky, float brightness, GameState gameState,MemoryStack stack, long predictedDisplayTime, XrCompositionLayerProjection layer, float viewportWidth, float viewportHeight, int overlayColor) {
+	private boolean eye = true;
+
+	private boolean renderLayerOpenXR(int sky, float brightness, GameState gameState, MemoryStack stack, long predictedDisplayTime, XrCompositionLayerProjection layer, float viewportWidth, float viewportHeight, int overlayColor) {
 		XrViewState viewState = XrViewState.calloc(stack)
 				.type$Default();
 
@@ -1905,6 +2291,15 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private static FloatBuffer mvpMatrix = BufferUtils.createFloatBuffer(16);
 	//int screenShader = ShadersGL.createShaderProgram(ShadersGL.screenVertShader, ShadersGL.texFragShader);
+	@Subscribe
+	public void onMenuOpened(final MenuOpened event){
+		state = HandSelectState.SELECTING;
+	}
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked menuOptionClicked){
+		state = HandSelectState.IDLE;
+	}
 
 	private void OpenGLRenderView(int sky, float brightness, GameState gameState, XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex, float viewportWidth, float viewportHeight, int overlayColor) {
 		GL43C.glUseProgram(glProgram);
@@ -1970,7 +2365,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTextures.get(swapchainImage), 0);
 
 		XrRect2Di imageRect = layerView.subImage().imageRect();
-		System.out.println(imageRect.offset().x()+" "+imageRect.offset().y()+" "+imageRect.extent().width()+" "+imageRect.extent().height());
+		//System.out.println(imageRect.offset().x()+" "+imageRect.offset().y()+" "+imageRect.extent().width()+" "+imageRect.extent().height());
 		glViewport(
 				imageRect.offset().x(),
 				imageRect.offset().y(),
@@ -2009,9 +2404,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 
 
-		/*System.out.println("HERE: "+layerView.fov().angleDown()+" "+layerView.fov().angleUp()+" "+layerView.fov().angleLeft()+" "+layerView.fov().angleRight());
+		/*//System.out.println("HERE: "+layerView.fov().angleDown()+" "+layerView.fov().angleUp()+" "+layerView.fov().angleLeft()+" "+layerView.fov().angleRight());
 		XRHelper.applyProjectionToMatrix(projectionMatrix.identity(), layerView.fov(), 0.1f, 100f, false);
-		System.out.println("("+pos.x()+","+pos.y()+","+pos.z()+")"+"("+orientation.x()+","+orientation.y()+","+orientation.z()+","+orientation.w()+")");
+		//System.out.println("("+pos.x()+","+pos.y()+","+pos.z()+")"+"("+orientation.x()+","+orientation.y()+","+orientation.z()+","+orientation.w()+")");
 		viewMatrix.translationRotateScaleInvert(
 				0, 0, 0,
 				orientation.x(), orientation.y(), orientation.z(), orientation.w(),
@@ -2039,9 +2434,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		//modelviewMatrix.identity();
 		//XRHelper.applyProjectionToMatrix(projectionMatrix.identity(), layerView.fov(), 0.1f, 100f, false);
-		System.out.println("HERE: "+layerView.fov().angleDown()+" "+layerView.fov().angleUp()+" "+layerView.fov().angleLeft()+" "+layerView.fov().angleRight());
+		//System.out.println("HERE: "+layerView.fov().angleDown()+" "+layerView.fov().angleUp()+" "+layerView.fov().angleLeft()+" "+layerView.fov().angleRight());
 		XRHelper.applyProjectionToMatrix(projectionMatrix.identity(), layerView.fov(), 0.1f, 10000f, false);
-		System.out.println("("+pos.x()+","+pos.y()+","+pos.z()+")"+"("+orientation.x()+","+orientation.y()+","+orientation.z()+","+orientation.w()+")");
+		//System.out.println("("+pos.x()+","+pos.y()+","+pos.z()+")"+"("+orientation.x()+","+orientation.y()+","+orientation.z()+","+orientation.w()+")");
 		viewMatrix.translationRotateScaleInvert(
 				(float) pos.x(), (float) pos.y(), (float) pos.z(),
 				orientation.x(), orientation.y(), orientation.z(), orientation.w(),
@@ -2073,6 +2468,23 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, targetBufferOffset);
 
 		drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix);
+
+		if(rightPose != null) {
+			//System.out.println(rightPose.position$().x() * 4 + " " + rightPose.position$().y() * 4);
+			handMatrix.translation(rightPose.position$().x(), (float) rightPose.position$().y(), (float) rightPose.position$().z())
+					.rotate(new Quaternionf(rightPose.orientation().x(), rightPose.orientation().y(), rightPose.orientation().z(), rightPose.orientation().w()));
+
+			Vector3f playAreaIntersect = CalcHelper.getPlayAreaIntersect(rightPose.position$(), rightPose.orientation());
+
+			cursorMatrix.translation(playAreaIntersect.x(), playAreaIntersect.y(), playAreaIntersect.z());
+
+			boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
+			if (state != HandSelectState.SELECTING) {
+				state = !inBounds ? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
+			}
+
+			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
+		}
 
 		glEnable(GL_CULL_FACE);
 
@@ -2227,7 +2639,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				renderWidthOff = (int) Math.floor(scaleFactorX * (renderWidthOff)) - padding;
 			}
 
-			glDpiAwareViewport(renderWidthOff, renderCanvasHeight - renderViewportHeight - renderHeightOff, renderViewportWidth, renderViewportHeight);
+			//glDpiAwareViewport(renderWidthOff, renderCanvasHeight - renderViewportHeight - renderHeightOff, renderViewportWidth, renderViewportHeight);
 
 			/*GL43C.glUseProgram(glProgram);
 
@@ -2250,7 +2662,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				GL43C.glUniform1i(uniTick, client.getGameCycle());
 			}
 
-			System.out.println("WOOP: "+cameraX+" "+cameraY+" "+cameraZ+" "+client.getScale());
+			//System.out.println("WOOP: "+cameraX+" "+cameraY+" "+cameraZ+" "+client.getScale());
 			// Calculate projection matrix
 			//float[] projectionMatrix = com.vr.Mat4.scale(client.getScale(), client.getScale(), 1);
 			float[] projectionMatrix = com.vr.Mat4.identity();
@@ -2365,11 +2777,63 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			throw ex;
 		}*/
 
-		//drawManager.processDrawComplete(this::screenshot);
+		drawManager.processDrawComplete(this::screenshot);
 
 		////GL43C.glBindFramebuffer(GL43C.GL_FRAMEBUFFER, awtContext.getFramebuffer(false));
 
 		checkGLErrors();
+	}
+
+	private void drawHand(Matrix4f viewMatrix, Matrix4f handMatrix, Matrix4f cursorMatrix, Matrix4f projectionMatrix, HandSelectState state)
+	{
+		GL43C.glEnable(GL43C.GL_BLEND);
+		// Use the texture bound in the first pass
+		GL43C.glUseProgram(glHandProgram);
+		GL43C.glUniformMatrix4fv(uniHandView, false, viewMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniCursor, false, cursorMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniHandProjection, false, projectionMatrix.get(mvpMatrix));
+		switch(state){
+			case IDLE:
+				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.25f);
+				break;
+			case HOVERING:
+				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,0.0f,0.25f);
+				break;
+			case SELECTING:
+				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.00f);
+				break;
+			case OUT_OF_BOUNDS:
+				GL43C.glUniform4f(uniHandColor, 255.0f,0.0f,0.0f,0.25f);
+				break;
+		}
+
+		// Texture on UI
+		GL43C.glBindVertexArray(vaoHandHandle);
+		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, 12);
+
+		switch(state){
+			case IDLE:
+				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.25f);
+				break;
+			case HOVERING:
+				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,0.0f,0.25f);
+				break;
+			case SELECTING:
+				GL43C.glUniform4f(uniHandColor, 00.0f,00.0f,255.0f,0.25f);
+				break;
+			case OUT_OF_BOUNDS:
+				GL43C.glUniform4f(uniHandColor, 255.0f,0.0f,0.0f,0.25f);
+				break;
+		}
+
+		GL43C.glUniformMatrix4fv(uniCursor, false, handMatrix.get(mvpMatrix));
+		GL43C.glBindVertexArray(vaoHandHandle);
+		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 12, 3);
+
+		GL43C.glBindVertexArray(0);
+		GL43C.glUseProgram(0);
+		GL43C.glDisable(GL43C.GL_BLEND);
+		//System.out.println(canvas.getLocationOnScreen());
 	}
 
 	//TODO: Move this inside the XR rendering.
@@ -2435,7 +2899,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	 *
 	 * @return
 	 */
-	/*private Image screenshot()
+	private Image screenshot()
 	{
 		int width = client.getCanvasWidth();
 		int height = client.getCanvasHeight();
@@ -2458,11 +2922,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		ByteBuffer buffer = ByteBuffer.allocateDirect(width * height * 4)
 			.order(ByteOrder.nativeOrder());
 
-		GL43C.glReadBuffer(awtContext.getBufferMode());
+		final BufferProvider bufferProvider = client.getBufferProvider();
+		final int[] pixels = bufferProvider.getPixels();
 		GL43C.glReadPixels(0, 0, width, height, GL43C.GL_RGBA, GL43C.GL_UNSIGNED_BYTE, buffer);
 
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
 
 		for (int y = 0; y < height; ++y)
 		{
@@ -2478,7 +2942,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}
 
 		return image;
-	}*/
+	}
 
 	@Override
 	public void animate(Texture texture, int diff)
@@ -2499,6 +2963,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	@Override
 	public void loadScene(Scene scene)
 	{
+		//System.out.println("UPLOADING: "+sceneUploader.sceneId);
 		if (computeMode == ComputeMode.NONE)
 		{
 			return;
@@ -2515,6 +2980,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		nextSceneVertexBuffer = vertexBuffer;
 		nextSceneTexBuffer = uvBuffer;
 		nextSceneId = sceneUploader.sceneId;
+		//System.out.println("UPLOADED: "+sceneUploader.sceneId);
 	}
 
 	private void uploadTileHeights(Scene scene)
