@@ -35,6 +35,7 @@ uniform ivec2 targetDimensions;
 
 uniform mat4 viewMatrix;
 uniform mat4 projection;
+uniform mat4 map;
 
 #include "scale/xbr_lv2_vert.glsl"
 
@@ -45,7 +46,7 @@ out vec2 TexCoord;
 out XBRTable xbrTable;
 
 void main() {
-  gl_Position = projection * viewMatrix * vec4(aPos, 1.0);
+  gl_Position = projection * viewMatrix * map * vec4(aPos, 1.0);
   //gl_Position = vec4(aPos, 1.0);
   TexCoord = aTexCoord;
 

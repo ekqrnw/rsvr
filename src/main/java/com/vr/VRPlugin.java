@@ -367,6 +367,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private com.vr.GpuIntBuffer nextSceneVertexBuffer;
 	private com.vr.GpuFloatBuffer nextSceneTexBuffer;
 
+	private int uniUiMap;
 	private int uniUiProjection;
 
 	private int uniUiView;
@@ -1526,6 +1527,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		uniUiColorBlindMode = GL43C.glGetUniformLocation(glUiProgram, "colorBlindMode");
 		uniUiAlphaOverlay = GL43C.glGetUniformLocation(glUiProgram, "alphaOverlay");
 
+		uniUiMap = GL43C.glGetUniformLocation(glUiProgram, "map");
 		uniUiProjection = GL43C.glGetUniformLocation(glUiProgram, "projection");
 		uniUiView = GL43C.glGetUniformLocation(glUiProgram, "viewMatrix");
 
@@ -1598,10 +1600,14 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		//TODO:figure out placement for this
 		vboUiBuf.put(new float[]{
 			// positions     // texture coords
-			0.2f, 0.2f, -0.2f, 1.0f, 0f, // top right
-			0.2f, -0.2f, -0.2f, 1.0f, 1f, // bottom right
-			-0.2f, -0.2f, -0.2f, 0.0f, 1f, // bottom left
-			-0.2f, 0.2f, -0.2f, 0.0f, 0f  // top left
+				0.2f, 0.2f, -0.02f, 1.0f, 0f, // top right
+				0.2f, -0.2f, -0.02f, 1.0f, 1f, // bottom right
+				-0.2f, -0.2f, -0.02f, 0.0f, 1f, // bottom left
+				-0.2f, 0.2f, -0.02f, 0.0f, 0f  // top left
+			//0.3f, 0.0f, -0.021f, 1.0f, 0f, // top right
+			//0.3f, -0.3f, -0.021f, 1.0f, 1f, // bottom right
+			//-0.0f, -0.3f, -0.021f, 0.0f, 1f, // bottom left
+			//-0.0f, 0.0f, -0.021f, 0.0f, 0f  // top left
 		});
 		vboUiBuf.rewind();
 		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, vboUiHandle);
@@ -2473,8 +2479,6 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, targetBufferOffset);
 
-		drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix);
-
 		if(rightPose != null) {
 			//System.out.println(rightPose.position$().x() * 4 + " " + rightPose.position$().y() * 4);
 			handMatrix.translation(rightPose.position$().x(), (float) rightPose.position$().y(), (float) rightPose.position$().z())
@@ -2482,6 +2486,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 			Vector3f playAreaIntersect = CalcHelper.getPlayAreaIntersect(rightPose.position$(), rightPose.orientation());
 
+			//System.out.println(playAreaIntersect.x()+" "+playAreaIntersect.y());
+			//mapMatrix.translation(rightPose.position$().x(), (float) rightPose.position$().y(), (float) rightPose.position$().z())
+			//		.rotate(new Quaternionf(rightPose.orientation().x(), rightPose.orientation().y(), rightPose.orientation().z(), rightPose.orientation().w()))
+			//		.translate(-(playAreaIntersect.x()+1)*0.15f*VRRobot.estimatedXRatio, -(playAreaIntersect.y()-1)*0.15f*VRRobot.estimatedYRatio, (float) 0.0);
+			mapMatrix.identity();
 			cursorMatrix.translation(playAreaIntersect.x(), playAreaIntersect.y(), playAreaIntersect.z());
 
 			boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
@@ -2490,7 +2499,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			}
 
 			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
-			//drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);
+			drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);
 
 			/*Matrix4f matrix = new Matrix4f(
 					projectionMatrix2[0],
@@ -2867,7 +2876,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	}
 
 	//TODO: Move this inside the XR rendering.
-	private void drawUi(final int overlayColor, final int canvasHeight, final int canvasWidth, Matrix4f viewMatrix, Matrix4f projectionMatrix)
+	private void drawUi(final int overlayColor, final int canvasHeight, final int canvasWidth, Matrix4f viewMatrix, Matrix4f projectionMatrix, Matrix4f mapMatrix)
 	{
 		GL43C.glEnable(GL43C.GL_BLEND);
 		GL43C.glBlendFunc(GL43C.GL_ONE, GL43C.GL_ONE_MINUS_SRC_ALPHA);
@@ -2878,6 +2887,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glUseProgram(glUiProgram);
 		GL43C.glUniformMatrix4fv(uniUiView, false, viewMatrix.get(mvpMatrix));
 		GL43C.glUniformMatrix4fv(uniUiProjection, false, projectionMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniUiMap, false, mapMatrix.get(mvpMatrix));
 		GL43C.glUniform1i(uniTex, 0);
 		GL43C.glUniform1i(uniTexSamplingMode, uiScalingMode.getMode());
 		GL43C.glUniform2i(uniTexSourceDimensions, canvasWidth, canvasHeight);
