@@ -1967,18 +1967,16 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	}
 
 	@Override
-	public void drawScenePaint(int orientation, int pitchSin, int pitchCos, int yawSin, int yawCos, int x, int y, int z,
-		SceneTilePaint paint, int tileZ, int tileX, int tileY,
-		int zoom, int centerX, int centerY)
+	public void drawScenePaint(Scene scene, SceneTilePaint paint, int plane, int tileX, int tileY)
 	{
-		if (computeMode == ComputeMode.NONE)
+		if (computeMode == VRPlugin.ComputeMode.NONE)
 		{
-			targetBufferOffset += sceneUploader.upload(client.getScene(), paint,
-				tileZ, tileX, tileY,
-				vertexBuffer, uvBuffer,
-				tileX << Perspective.LOCAL_COORD_BITS,
-				tileY << Perspective.LOCAL_COORD_BITS,
-				true
+			targetBufferOffset += sceneUploader.upload(scene, paint,
+					plane, tileX, tileY,
+					vertexBuffer, uvBuffer,
+					tileX << Perspective.LOCAL_COORD_BITS,
+					tileY << Perspective.LOCAL_COORD_BITS,
+					true
 			);
 		}
 		else if (paint.getBufferLen() > 0)
@@ -1987,7 +1985,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			final int localY = 0;
 			final int localZ = tileY << Perspective.LOCAL_COORD_BITS;
 
-			com.vr.GpuIntBuffer b = modelBufferUnordered;
+			GpuIntBuffer b = modelBufferUnordered;
 			++unorderedModels;
 
 			b.ensureCapacity(8);
@@ -2004,16 +2002,14 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	}
 
 	@Override
-	public void drawSceneModel(int orientation, int pitchSin, int pitchCos, int yawSin, int yawCos, int x, int y, int z,
-		SceneTileModel model, int tileZ, int tileX, int tileY,
-		int zoom, int centerX, int centerY)
+	public void drawSceneTileModel(Scene scene, SceneTileModel model, int tileX, int tileY)
 	{
-		if (computeMode == ComputeMode.NONE)
+		if (computeMode == VRPlugin.ComputeMode.NONE)
 		{
 			targetBufferOffset += sceneUploader.upload(model,
-				0, 0,
-				vertexBuffer, uvBuffer,
-				true);
+					0, 0,
+					vertexBuffer, uvBuffer,
+					true);
 		}
 		else if (model.getBufferLen() > 0)
 		{
@@ -2021,7 +2017,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			final int localY = 0;
 			final int localZ = tileY << Perspective.LOCAL_COORD_BITS;
 
-			com.vr.GpuIntBuffer b = modelBufferUnordered;
+			GpuIntBuffer b = modelBufferUnordered;
 			++unorderedModels;
 
 			b.ensureCapacity(8);
@@ -2442,6 +2438,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				orientation.x(), orientation.y(), orientation.z(), orientation.w(),
 				1, 1,1
 		);
+
 		//glUniformMatrix4fv(uniProjection, false, projectionMatrix.identity().get(mvpMatrix));
 		/*float[] projectionMatrix2 = com.vr.Mat4.identity();
 		com.vr.Mat4.mul(projectionMatrix2, Mat4.scale(client.getScale(), client.getScale(), -(float)client.getScale()/181f));
@@ -3151,20 +3148,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	/**
 	 * Draw a renderable in the scene
-	 *
-	 * @param renderable
-	 * @param orientation
-	 * @param pitchSin
-	 * @param pitchCos
-	 * @param yawSin
-	 * @param yawCos
-	 * @param x
-	 * @param y
-	 * @param z
-	 * @param hash
 	 */
 	@Override
-	public void draw(Renderable renderable, int orientation, int pitchSin, int pitchCos, int yawSin, int yawCos, int x, int y, int z, long hash)
+	public void draw(Projection projection, Scene scene, Renderable renderable, int orientation, int x, int y, int z, long hash)
 	{
 		Model model, offsetModel;
 		if (renderable instanceof Model)
@@ -3186,7 +3172,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			offsetModel = model;
 		}
 
-		if (computeMode == ComputeMode.NONE)
+		if (computeMode == VRPlugin.ComputeMode.NONE)
 		{
 			// Apply height to renderable from the model
 			if (model != renderable)
@@ -3194,38 +3180,49 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				renderable.setModelHeight(model.getModelHeight());
 			}
 
-			if (!isVisible(model, pitchSin, pitchCos, yawSin, yawCos, x, y, z))
+			model.calculateBoundsCylinder();
+
+			if (projection instanceof IntProjection)
 			{
-				return;
+				IntProjection p = (IntProjection) projection;
+				if (!isVisible(model, p.getPitchSin(), p.getPitchCos(), p.getYawSin(), p.getYawCos(), x - p.getCameraX(), y - p.getCameraY(), z - p.getCameraZ()))
+				{
+					return;
+				}
 			}
 
-			client.checkClickbox(model, orientation, pitchSin, pitchCos, yawSin, yawCos, x, y, z, hash);
+			client.checkClickbox(projection, model, orientation, x, y, z, hash);
 
 			targetBufferOffset += sceneUploader.pushSortedModel(
-				model, orientation,
-				pitchSin, pitchCos,
-				yawSin, yawCos,
-				x, y, z,
-				vertexBuffer, uvBuffer);
+					projection,
+					model, orientation,
+					x, y, z,
+					vertexBuffer, uvBuffer);
 		}
 		// Model may be in the scene buffer
 		else if (offsetModel.getSceneId() == sceneId)
 		{
 			assert model == renderable;
 
-			if (!isVisible(model, pitchSin, pitchCos, yawSin, yawCos, x, y, z))
+			model.calculateBoundsCylinder();
+
+			if (projection instanceof IntProjection)
 			{
-				return;
+				IntProjection p = (IntProjection) projection;
+				if (!isVisible(model, p.getPitchSin(), p.getPitchCos(), p.getYawSin(), p.getYawCos(), x - p.getCameraX(), y - p.getCameraY(), z - p.getCameraZ()))
+				{
+					return;
+				}
 			}
 
-			client.checkClickbox(model, orientation, pitchSin, pitchCos, yawSin, yawCos, x, y, z, hash);
+			client.checkClickbox(projection, model, orientation, x, y, z, hash);
 
 			int tc = Math.min(MAX_TRIANGLE, offsetModel.getFaceCount());
 			int uvOffset = offsetModel.getUvBufferOffset();
-			int plane = (int) ((hash >> 49) & 3);
+			int plane = (int) ((hash >> TileObject.HASH_PLANE_SHIFT) & 3);
 			boolean hillskew = offsetModel != model;
 
-			com.vr.GpuIntBuffer b = bufferForTriangles(tc);
+			GpuIntBuffer b = bufferForTriangles(tc);
 
 			b.ensureCapacity(8);
 			IntBuffer buffer = b.getBuffer();
@@ -3233,8 +3230,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			buffer.put(uvOffset);
 			buffer.put(tc);
 			buffer.put(targetBufferOffset);
-			buffer.put(FLAG_SCENE_BUFFER | (hillskew ? (1 << 26) : 0) | (plane << 24) | (model.getRadius() << 12) | orientation);
-			buffer.put(x + client.getCameraX2()).put(y + client.getCameraY2()).put(z + client.getCameraZ2());
+			buffer.put(FLAG_SCENE_BUFFER | (hillskew ? (1 << 26) : 0) | (plane << 24) | orientation);
+			buffer.put(x).put(y).put(z);
 
 			targetBufferOffset += tc * 3;
 		}
@@ -3248,18 +3245,24 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				renderable.setModelHeight(model.getModelHeight());
 			}
 
-			if (!isVisible(model, pitchSin, pitchCos, yawSin, yawCos, x, y, z))
+			model.calculateBoundsCylinder();
+
+			if (projection instanceof IntProjection)
 			{
-				return;
+				IntProjection p = (IntProjection) projection;
+				if (!isVisible(model, p.getPitchSin(), p.getPitchCos(), p.getYawSin(), p.getYawCos(), x - p.getCameraX(), y - p.getCameraY(), z - p.getCameraZ()))
+				{
+					return;
+				}
 			}
 
-			client.checkClickbox(model, orientation, pitchSin, pitchCos, yawSin, yawCos, x, y, z, hash);
+			client.checkClickbox(projection, model, orientation, x, y, z, hash);
 
 			boolean hasUv = model.getFaceTextures() != null;
 
 			int len = sceneUploader.pushModel(model, vertexBuffer, uvBuffer);
 
-			com.vr.GpuIntBuffer b = bufferForTriangles(len / 3);
+			GpuIntBuffer b = bufferForTriangles(len / 3);
 
 			b.ensureCapacity(8);
 			IntBuffer buffer = b.getBuffer();
@@ -3267,8 +3270,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			buffer.put(hasUv ? tempUvOffset : -1);
 			buffer.put(len / 3);
 			buffer.put(targetBufferOffset);
-			buffer.put((model.getRadius() << 12) | orientation);
-			buffer.put(x + client.getCameraX2()).put(y + client.getCameraY2()).put(z + client.getCameraZ2());
+			buffer.put(orientation);
+			buffer.put(x).put(y).put(z);
 
 			tempOffset += len;
 			if (hasUv)
