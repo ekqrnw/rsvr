@@ -1129,6 +1129,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}
 	}
 
+	HudHelper hudHelper;
 	@Override
 	protected void startUp()
 	{
@@ -1246,6 +1247,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				createOpenGLResourses();
 
 				checkGLErrors();
+
+				hudHelper = new HudHelper();
 
 				eventDataBuffer = XrEventDataBuffer.calloc()
 						.type$Default();
@@ -1468,12 +1471,17 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		return template;
 	}
 
+	static final com.vr.Shader HUD_PROGRAM = new Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "verthud.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud.glsl");
+
 	private void initProgram() throws com.vr.ShaderException
 	{
 		Template template = createTemplate(-1, -1);
 		glProgram = PROGRAM.compile(template);
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
+		hudHelper.glHudProgram = HUD_PROGRAM.compile(template);
 
 		if (computeMode == ComputeMode.OPENGL)
 		{
@@ -1815,6 +1823,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		// after this that don't involve a scene draw, like during LOADING/HOPPING/CONNECTION_LOST, we can
 		// still redraw the previous frame's scene to emulate the client behavior of not painting over the
 		// viewport buffer.
+		hudHelper.swap();
 		targetBufferOffset = 0;
 
 		// UBO. Only the first 32 bytes get modified here, the rest is the constant sin/cos table.
@@ -2481,6 +2490,30 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			}
 
 			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
+			//drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);
+
+			/*Matrix4f matrix = new Matrix4f(
+					projectionMatrix2[0],
+					projectionMatrix2[4],
+					projectionMatrix2[8],
+					projectionMatrix2[12],
+					projectionMatrix2[1],
+					projectionMatrix2[5],
+					projectionMatrix2[9],
+					projectionMatrix2[13],
+					projectionMatrix2[2],
+					projectionMatrix2[6],
+					projectionMatrix2[10],
+					projectionMatrix2[14],
+					projectionMatrix2[3],
+					projectionMatrix2[7],
+					projectionMatrix2[11],
+					projectionMatrix2[15]
+			);*/
+
+			glDisable(GL_DEPTH_TEST);
+			hudHelper.drawHud(viewMatrix, projectionMatrix, projectionMatrix2);
+			glEnable(GL_DEPTH_TEST);
 		}
 
 		glEnable(GL_CULL_FACE);
@@ -3182,6 +3215,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 			model.calculateBoundsCylinder();
 
+			if (renderable instanceof Actor){
+				hudHelper.backloadActor((Actor)renderable, orientation, x, y, z);
+			}
+
 			if (projection instanceof IntProjection)
 			{
 				IntProjection p = (IntProjection) projection;
@@ -3205,6 +3242,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			assert model == renderable;
 
 			model.calculateBoundsCylinder();
+
+			if (renderable instanceof Actor){
+				hudHelper.backloadActor((Actor)renderable, orientation, x, y, z);
+			}
 
 			if (projection instanceof IntProjection)
 			{
@@ -3246,6 +3287,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			}
 
 			model.calculateBoundsCylinder();
+
+			if (renderable instanceof Actor){
+				hudHelper.backloadActor((Actor)renderable, orientation, x, y, z);
+			}
 
 			if (projection instanceof IntProjection)
 			{

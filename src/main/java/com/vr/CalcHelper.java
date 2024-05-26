@@ -30,7 +30,7 @@ public class CalcHelper {
         }
     }
 
-    private static final HashMap<Character, Integer> fontWidths = new HashMap<>();
+    public static final HashMap<Character, Integer> fontWidths = new HashMap<>();
     static{
         fontWidths.put('a',6);
         fontWidths.put('b',6);
