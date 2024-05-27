@@ -15,6 +15,8 @@ import java.io.File;
 import java.nio.FloatBuffer;
 import java.util.*;
 
+import static org.joml.Math.cos;
+import static org.joml.Math.sin;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_T;
 import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
@@ -133,6 +135,17 @@ public class HudHelper {
         if(actor instanceof NPC) backloadNPC((NPC)actor,orientation,x,y,z);
     }
 
+    void rotateAndTranslate(float[] xyzw, int x, int y, int z, int orientation){
+        float rad = orientation * (float)(Math.PI)/1024.0f;
+        float s = sin(rad);
+        float c = cos(rad);
+        float x2 = xyzw[2] * s + xyzw[0] * c;
+        float z2 = xyzw[2] * c - xyzw[0] * s;
+        xyzw[0] = x2+x;
+        xyzw[1] = xyzw[1]+y;
+        xyzw[2] = z2+z;
+    }
+
     void swap(){
         npcs.clear();
         players.clear();
@@ -143,7 +156,8 @@ public class HudHelper {
         int x = act.x;
         int y = act.y;
         int z = act.z;
-        if(actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) return;
+        int orientation = act.orientation;
+        if(actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) {}
         else {
             String overhead = actor.getOverheadText();
             GL43C.glEnable(GL43C.GL_BLEND);
@@ -172,8 +186,8 @@ public class HudHelper {
                 }
             }
 
-            System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
-            System.out.println(projectionMatrix2);
+            //System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
+            //System.out.println(projectionMatrix2);
             //Matrix4f m = new Matrix4f().mul(projectionMatrix2).mul();//.mul(projectionMatrix2);
             //System.out.println("CRIER: "+m.get(0,0)+" "+m.get(0,1)+" "+m.get(0,2));
             ////Matrix4f mat = new Matrix4f().mul(projectionMatrix2).mul(new Matrix4f(xoffset,yoffset,zoffset,1,0,0,0,0,0,0,0,0,0,0,0,0));//;//m.get(0,0), m.get(0,1), m.get(0,2));
@@ -187,7 +201,9 @@ public class HudHelper {
             GL43C.glUniformMatrix4fv(uniHudView, false, viewMatrix.get(mvpMatrix));
             GL43C.glUniformMatrix4fv(uniHudProjection, false, projectionMatrix.get(mvpMatrix));
             GL43C.glUniformMatrix4fv(uniHudProjection2, false, projectionMatrix2);
-            GL43C.glUniform4fv(uniHudLoc, new float[]{x+xoffset, y+yoffset, z+zoffset, 1.0f});
+            float[] real = new float[]{xoffset, yoffset, zoffset, 1.0f};
+            rotateAndTranslate(real,x,y,z,orientation);
+            GL43C.glUniform4fv(uniHudLoc, real);
 
             GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
             // Texture on UI
