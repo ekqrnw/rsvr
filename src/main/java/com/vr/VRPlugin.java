@@ -29,9 +29,7 @@ import com.google.common.primitives.Ints;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.MenuOpened;
-import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.*;
 import net.runelite.api.hooks.DrawCallbacks;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.callback.Hooks;
@@ -1476,6 +1474,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			.add(GL43C.GL_VERTEX_SHADER, "verthud.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud.glsl");
 
+	static final com.vr.Shader HUD2_PROGRAM = new Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "verthud2.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud2.glsl");
+
 	private void initProgram() throws com.vr.ShaderException
 	{
 		Template template = createTemplate(-1, -1);
@@ -1483,6 +1485,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
 		hudHelper.glHudProgram = HUD_PROGRAM.compile(template);
+		hudHelper.glHud2Program = HUD2_PROGRAM.compile(template);
+
 
 		if (computeMode == ComputeMode.OPENGL)
 		{
@@ -1829,7 +1833,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		// after this that don't involve a scene draw, like during LOADING/HOPPING/CONNECTION_LOST, we can
 		// still redraw the previous frame's scene to emulate the client behavior of not painting over the
 		// viewport buffer.
-		hudHelper.swap();
+		hudHelper.swap(client);
 		targetBufferOffset = 0;
 
 		// UBO. Only the first 32 bytes get modified here, the rest is the constant sin/cos table.
@@ -2998,6 +3002,21 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			// Avoid drawing the last frame's buffer during LOADING after LOGIN_SCREEN
 			targetBufferOffset = 0;
 		}
+	}
+
+	@Subscribe
+	public void onHitsplatApplied(HitsplatApplied hitsplatApplied)
+	{
+		//hudHelper.addHitsplat(hitsplatApplied);
+		hudHelper.addHealthbarTimeout(hitsplatApplied.getActor(), hitsplatApplied.getHitsplat().getDisappearsOnGameCycle()+100);
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick gameTick)
+	{
+		//hudHelper.updateLocations();
+		hudHelper.cullHealthbars(client.getGameCycle());
+		//hudHelper.cullHitsplats(client.getGameCycle());
 	}
 
 	@Override

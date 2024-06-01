@@ -45,7 +45,26 @@ public class HudHelper {
     private int vaoHudHandle;
     static int glHudProgram;
 
+    private int uniHud2Projection;
+    private int uniHud2Projection2;
+
+    private int uniHud2View;
+
+    private int uniHud2Loc;
+
+    private int vboHud2Handle;
+    private int vaoHud2Handle;
+    static int glHud2Program;
+
+    //TileInterpolator interpolator;
+
     HudHelper() {
+        //interpolator = new TileInterpolator();
+        uniHud2Projection = GL43C.glGetUniformLocation(glHud2Program, "projection");
+        uniHud2Projection2 = GL43C.glGetUniformLocation(glHud2Program, "projection2");
+        uniHud2View = GL43C.glGetUniformLocation(glHud2Program, "viewMatrix");
+        uniHud2Loc= GL43C.glGetUniformLocation(glHud2Program, "loc");
+
         characters = new HashMap<>();
 
         uniHudProjection = GL43C.glGetUniformLocation(glHudProgram, "projection");
@@ -63,6 +82,19 @@ public class HudHelper {
 
         // texture coord attribute
         GL43C.glVertexAttribPointer(1, 2, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 3 * Float.BYTES);
+        GL43C.glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+        vaoHud2Handle = GL43C.glGenVertexArrays();
+        vboHud2Handle = GL43C.glGenBuffers();
+        glBindVertexArray(vaoHud2Handle);
+        glBindBuffer(GL_ARRAY_BUFFER, vboHud2Handle);
+        GL43C.glBufferData(GL_ARRAY_BUFFER, GL43C.GL_FLOAT * 6 * 12, GL_DYNAMIC_DRAW);
+        GL43C.glVertexAttribPointer(0, 3, GL43C.GL_FLOAT, false, 6 * Float.BYTES, 0);
+        GL43C.glEnableVertexAttribArray(0);
+
+        // texture coord attribute
+        GL43C.glVertexAttribPointer(1, 3, GL43C.GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
         GL43C.glEnableVertexAttribArray(1);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
@@ -106,15 +138,17 @@ public class HudHelper {
 
     private static FloatBuffer mvpMatrix = BufferUtils.createFloatBuffer(16);
 
+    private Map<Actor, Act> actors = new HashMap<>();
+
+    private Map<Actor, Integer> healthbars = new HashMap<>();
+
     class Act{
-        Actor actor;
         int orientation;
         int x;
         int y;
         int z;
 
-        Act(Actor actor, int orientation, int x, int y, int z){
-           this.actor = actor;
+        Act(int orientation, int x, int y, int z){
            this.orientation = orientation;
            this.x = x;
            this.y = y;
@@ -122,17 +156,9 @@ public class HudHelper {
         }
     }
 
-    void backloadPlayer(Player actor, int orientation, int x, int y, int z){
-        players.put(actor.getId(), new Act(actor,orientation,x,y,z));
-    }
-
-    void backloadNPC(NPC actor, int orientation, int x, int y, int z){
-        npcs.put(actor.getId(), new Act(actor,orientation,x,y,z));
-    }
-
     void backloadActor(Actor actor, int orientation, int x, int y, int z){
-        if(actor instanceof Player) backloadPlayer((Player)actor,orientation,x,y,z);
-        if(actor instanceof NPC) backloadNPC((NPC)actor,orientation,x,y,z);
+        //interpolator.addActor(actor);
+        actors.put(actor, new Act(orientation,x,y,z));
     }
 
     void rotateAndTranslate(float[] xyzw, int x, int y, int z, int orientation){
@@ -146,25 +172,40 @@ public class HudHelper {
         xyzw[2] = z2+z;
     }
 
-    void swap(){
-        npcs.clear();
-        players.clear();
+    void swap(Client client){
+        Set<Actor> remove = new HashSet<>();
+        for(Actor actor: actors.keySet()){
+            if(actor.getModel() == null){
+                remove.add(actor);
+            }
+        }
+        for(Actor actor: remove){
+            actors.remove(actor);
+            //interpolator.actors.remove(actor);
+        }
     }
 
-    void drawOverheadText(Act act, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
-        Actor actor = act.actor;
-        int x = act.x;
-        int y = act.y;
-        int z = act.z;
-        int orientation = act.orientation;
-        if(actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) {}
-        else {
-            String overhead = actor.getOverheadText();
-            GL43C.glEnable(GL43C.GL_BLEND);
-            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+    public void addHealthbarTimeout(Actor actor, int timeout){
+        healthbars.put(actor, timeout);
+    }
 
+    public void cullHealthbars(int timeout){
+        HashSet<Actor> actors = new HashSet<>();
+        for(Actor actor: healthbars.keySet()){
+            if(healthbars.get(actor) < timeout){
+                actors.add(actor);
+            }
+        }
+        for(Actor actor: actors){
+            healthbars.remove(actor);
+        }
+    }
+
+    void drawAll(Actor actor, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+        if((actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) && !healthbars.containsKey(actor)) {}
+        else {
             Model model = actor.getModel();
-            if(model.getUnskewedModel() != null){
+            if (model.getUnskewedModel() != null) {
                 model = model.getUnskewedModel();
             }
 
@@ -179,12 +220,103 @@ public class HudHelper {
 
             for (int v = 0; v < vertexCount; ++v) {
 
-                if(verticesY[v] < yoffset){
+                if (verticesY[v] < yoffset) {
                     yoffset = verticesY[v];
-                    xoffset = verticesX[v];
-                    zoffset = verticesZ[v];
+                    //xoffset = verticesX[v];
+                    //zoffset = verticesZ[v];
                 }
             }
+
+            int radius = model.getRadius();
+
+            drawOverheadText(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
+            drawHealthbar(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
+            //drawHitsplats(actor, xoffset, yoffset/2, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
+        }
+    }
+
+    void drawHealthbar(Actor actor, int xoffset, int yoffset, int zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+        Act act = actors.get(actor);
+        int x = act.x;
+        int y = act.y;
+        int z = act.z;
+        int orientation = act.orientation;
+        //System.out.println("ACTOR: "+actor);
+        if(!healthbars.containsKey(actor)){}
+        else {
+            //System.out.println("DRAWING!");
+            //GL43C.glEnable(GL43C.GL_BLEND);
+            //GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+
+            int scale = actor.getHealthScale();
+            int ratio = actor.getHealthRatio();
+            if(scale == -1 || ratio == -1) return;
+
+            float height = 0.007f;
+            float off = (actor.getOverheadCycle() > 0)? 0.026f:0.00f;
+            float width = 0.07f*scale/30.0f;
+
+
+            GL43C.glUseProgram(glHud2Program);
+            GL43C.glUniformMatrix4fv(uniHud2View, false, viewMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud2Projection, false, projectionMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud2Projection2, false, projectionMatrix2);
+
+            float[] real = new float[]{xoffset, yoffset, zoffset, 1.0f};
+            rotateAndTranslate(real,x,y,z,orientation);
+            GL43C.glUniform4fv(uniHud2Loc, real);
+
+            //GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+            // Texture on UI
+            GL43C.glBindVertexArray(vaoHud2Handle);
+
+            if(actor.isDead()) ratio = 0;
+
+            float v = -width / 2.0f + width * ratio / scale;
+            float[] vertices = new float[]{
+                    -width/2.0f, off, 0.0f, 0.0f, 1.0f, 0.0f,
+                    -width/2.0f, height+off, 0.0f, 0.0f, 1.0f, 0.0f,
+                    v, off, 0.0f, 0.0f, 1.0f, 0.0f,
+
+                    -width/2.0f, height+off, 0.0f, 0.0f, 1.0f, 0.0f,
+                    v, height+off, 0.0f, 0.0f, 1.0f, 0.0f,
+                    v, off, 0.0f, 0.0f, 1.0f, 0.0f,
+
+                    v, off, 0.0f, 1.0f, 0.0f, 0.0f,
+                    v, height+off, 0.0f, 1.0f, 0.0f, 0.0f,
+                    width/2.0f, off, 0.0f, 1.0f, 0.0f, 0.0f,
+
+                    v, height+off, 0.0f, 1.0f, 0.0f, 0.0f,
+                    width/2.0f, height+off, 0.0f, 1.0f, 0.0f, 0.0f,
+                    width/2.0f, off, 0.0f, 1.0f, 0.0f, 0.0f,
+            };
+            // update content of VBO memory
+            glBindBuffer(GL_ARRAY_BUFFER, vboHud2Handle);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            // render quad
+            glDrawArrays(GL_TRIANGLES, 0, 12);
+            // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+
+            // Reset
+            GL43C.glBindVertexArray(0);
+            GL43C.glUseProgram(0);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+            GL43C.glDisable(GL43C.GL_BLEND);
+        }
+    }
+
+    void drawOverheadText(Actor actor, int xoffset, int yoffset, int zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+        Act act = actors.get(actor);
+        int x = act.x;
+        int y = act.y;
+        int z = act.z;
+        int orientation = act.orientation;
+        if(actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) {}
+        else {
+            String overhead = actor.getOverheadText();
+            GL43C.glEnable(GL43C.GL_BLEND);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
 
             //System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
             //System.out.println(projectionMatrix2);
@@ -260,11 +392,8 @@ public class HudHelper {
     }
 
     void drawHud(Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
-        for(Act player: players.values()){
-            drawOverheadText(player, viewMatrix, projectionMatrix, projectionMatrix2);
-        }
-        for(Act npc: npcs.values()){
-            drawOverheadText(npc, viewMatrix, projectionMatrix, projectionMatrix2);
+        for(Actor actor: actors.keySet()){
+            drawAll(actor, viewMatrix, projectionMatrix, projectionMatrix2);
         }
     }
 }
