@@ -2529,9 +2529,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					projectionMatrix2[15]
 			);*/
 
-			glDisable(GL_DEPTH_TEST);
+			//glDisable(GL_DEPTH_TEST);
+			glClear(GL_DEPTH_BUFFER_BIT);
 			hudHelper.drawHud(viewMatrix, projectionMatrix, projectionMatrix2);
-			glEnable(GL_DEPTH_TEST);
+			//glEnable(GL_DEPTH_TEST);
 		}
 
 		glEnable(GL_CULL_FACE);
