@@ -29,7 +29,7 @@
 #define SAMPLING_XBR 3
 
 uniform sampler2D tex;
-uniform vec3 col;
+//uniform vec3 col;
 
 //uniform int samplingMode;
 //uniform ivec2 sourceDimensions;
@@ -61,7 +61,7 @@ void main() {
   //  c = texture(tex, TexCoord);
   //}
 
-  c = vec4(col, texture(tex, TexCoord).r);//alphaBlend(c, alphaOverlay);
+  c = texture(tex, TexCoord);//alphaBlend(c, alphaOverlay);
   //c.rgb = colorblind(colorBlindMode, c.rgb);
 
   FragColor = c;

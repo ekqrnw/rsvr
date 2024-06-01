@@ -1470,6 +1470,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		return template;
 	}
 
+	static final com.vr.Shader HUD3_PROGRAM = new Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "verthud.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud3.glsl");
+
 	static final com.vr.Shader HUD_PROGRAM = new Shader()
 			.add(GL43C.GL_VERTEX_SHADER, "verthud.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud.glsl");
@@ -1484,6 +1488,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glProgram = PROGRAM.compile(template);
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
+		hudHelper.glHud3Program = HUD3_PROGRAM.compile(template);
 		hudHelper.glHudProgram = HUD_PROGRAM.compile(template);
 		hudHelper.glHud2Program = HUD2_PROGRAM.compile(template);
 
@@ -3007,7 +3012,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied hitsplatApplied)
 	{
-		//hudHelper.addHitsplat(hitsplatApplied);
+		hudHelper.addHitsplat(hitsplatApplied);
 		hudHelper.addHealthbarTimeout(hitsplatApplied.getActor(), hitsplatApplied.getHitsplat().getDisappearsOnGameCycle()+100);
 	}
 
@@ -3016,7 +3021,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	{
 		//hudHelper.updateLocations();
 		hudHelper.cullHealthbars(client.getGameCycle());
-		//hudHelper.cullHitsplats(client.getGameCycle());
+		hudHelper.cullHitsplats(client.getGameCycle());
 	}
 
 	@Override
