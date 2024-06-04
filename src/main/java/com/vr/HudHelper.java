@@ -329,7 +329,7 @@ public class HudHelper {
         //System.out.println("ACTOR: "+actor);
         if(!hitsplats.containsKey(actor)){}
         else {
-            float tiles = ((actor.getWorldArea().getWidth()/2)+(actor.getWorldArea().getHeight()/2))/2.0f;
+            float tiles = (((actor.getWorldArea().getWidth()-1)/2)+((actor.getWorldArea().getHeight()-1)/2))/2.0f;
             ArrayList<Hitsplat> hits = hitsplats.get(actor);
             GL43C.glEnable(GL43C.GL_BLEND);
             GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
@@ -369,13 +369,13 @@ public class HudHelper {
                 //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
                 // update VBO for each character
                 float[] vertices = new float[]{
-                        xpos-w,    ypos + h,   0.044f*tiles, 0.0f, 0.0f ,
-                        xpos-w,     ypos,      0.044f*tiles,0.0f, 1.0f ,
-                        xpos+w, ypos,      0.044f*tiles,1.0f, 1.0f ,
+                        xpos-w,    ypos + h,   0.044f+0.088f*tiles, 0.0f, 0.0f ,
+                        xpos-w,     ypos,      0.044f+0.088f*tiles,0.0f, 1.0f ,
+                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 1.0f ,
 
-                        xpos-w,     ypos + h,  0.044f*tiles,0.0f, 0.0f ,
-                        xpos+w, ypos,      0.044f*tiles,1.0f, 1.0f ,
-                        xpos+w, ypos + h,  0.044f*tiles,1.0f, 0.0f };
+                        xpos-w,     ypos + h,  0.044f+0.088f*tiles,0.0f, 0.0f ,
+                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 1.0f ,
+                        xpos+w, ypos + h,  0.044f+0.088f*tiles,1.0f, 0.0f };
                 // render glyph texture over quad
                 glBindTexture(GL_TEXTURE_2D, hitsplatTex.get(hit.getHitsplatType()));
                 // update content of VBO memory
@@ -437,13 +437,13 @@ public class HudHelper {
                     //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
                     // update VBO for each character
                     float[] vertices = new float[]
-                            {xpos, ypos + h, 0.044f*tiles+0.001f, 0.0f, 0.0f,
-                                    xpos, ypos, 0.044f*tiles+0.001f, 0.0f, 1.0f,
-                                    xpos + w, ypos, 0.044f*tiles+0.001f, 1.0f, 1.0f,
+                            {xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
+                                    xpos, ypos, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
 
-                                    xpos, ypos + h, 0.044f*tiles+0.001f, 0.0f, 0.0f,
-                                    xpos + w, ypos, 0.044f*tiles+0.001f, 1.0f, 1.0f,
-                                    xpos + w, ypos + h, 0.044f*tiles+0.001f, 1.0f, 0.0f};
+                                    xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
+                                    xpos + w, ypos + h, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f};
                     // render glyph texture over quad
                     glBindTexture(GL_TEXTURE_2D, ch.id);
                     // update content of VBO memory
