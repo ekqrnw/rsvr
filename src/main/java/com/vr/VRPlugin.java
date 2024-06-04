@@ -122,6 +122,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	XrAction                       rightClick;
 	XrAction                       leftClick;
 	XrAction                       middleClick;
+
+	XrAction                       aButton;
+	XrAction                       bButton;
 	XrAction                       pose;
 
 	XrPosef                        leftPose;
@@ -142,7 +145,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private static Matrix4f handMatrix       = new Matrix4f();
 
+	private static Matrix4f mapMatrix       = new Matrix4f();
+
 	private static Matrix4f cursorMatrix       = new Matrix4f();
+
 
 	//Runtime
 	XrEventDataBuffer eventDataBuffer;
@@ -253,19 +259,29 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private int glHandProgram;
 
+	private int glMenuProgram;
+
 	private int vaoCompute;
 	private int vaoTemp;
 
 	private int interfaceTexture;
 	private int interfacePbo;
 
+	private int menuTexture;
+	private int menuPbo;
+
+
 	private int vaoUiHandle;
+
+	private int vaoMenuHandle;
 
 	private int vaoHandHandle;
 	private int vaoHandIndHandle;
 	private int vboUiHandle;
 
 	private int vboHandHandle;
+
+	private int vboMenuHandle;
 
 	private int vboHandIndHandle;
 
@@ -337,6 +353,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	// Uniforms
 	private int uniColorBlindMode;
 	private int uniUiColorBlindMode;
+
+	private int uniMenuColorBlindMode;
 	private int uniUseFog;
 	private int uniFogColor;
 	private int uniFogDepth;
@@ -349,6 +367,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private int uniTexSourceDimensions;
 	private int uniTexTargetDimensions;
 	private int uniUiAlphaOverlay;
+
+	private int uniMenuTex;
+	private int uniMenuTexSamplingMode;
+	private int uniMenuTexSourceDimensions;
+	private int uniMenuTexTargetDimensions;
+	private int uniMenuAlphaOverlay;
+
 	private int uniTextures;
 	private int uniTextureAnimations;
 	private int uniBlockSmall;
@@ -370,9 +395,19 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private int uniUiView;
 
+	private int uniMenuMap;
+	private int uniMenuProjection;
+
+	private int uniMenuProjection2;
+
+	private int uniMenuView;
+
+	private int uniMenuLoc;
+
 	private int uniHandProjection;
 
 	private int uniHandView;
+
 	private int uniCursor;
 
 	private int uniHandColor;
@@ -799,6 +834,36 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					XrActionCreateInfo.malloc(stack)
 							.type$Default()
 							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("a_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("A Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			aButton = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("b_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("B Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			bButton = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
 							.actionName(GpuByteBuffer.getBuffer("pose"))
 							.localizedActionName(GpuByteBuffer.getBuffer("Pose"))
 							.actionType(XR_ACTION_TYPE_POSE_INPUT)
@@ -818,20 +883,26 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			LongBuffer buffer6 = stack.mallocLong(1);
 			LongBuffer buffer7 = stack.mallocLong(1);
 			LongBuffer buffer8 = stack.mallocLong(1);
+			LongBuffer buffer9 = stack.mallocLong(1);
+			LongBuffer buffer10 = stack.mallocLong(1);
 
 			check(xrStringToPath(xrInstance, "/user/hand/left/input/aim/pose", buffer4));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/aim/pose", buffer5));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/trigger/value", buffer6));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/squeeze/value", buffer7));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/thumbstick/click", buffer8));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/a/click", buffer9));
+			check(xrStringToPath(xrInstance, "/user/hand/right/input/b/click", buffer10));
 
 			//TODO: THIS DOES IT
-			XrActionSuggestedBinding.Buffer suggested = XrActionSuggestedBinding.malloc(5, stack)
+			XrActionSuggestedBinding.Buffer suggested = XrActionSuggestedBinding.malloc(7, stack)
 					.put(0,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer4.get(0)))
 					.put(1,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer5.get(0)))
 					.put(2,XrActionSuggestedBinding.malloc(stack).action(leftClick).binding(buffer6.get(0)))
 					.put(3,XrActionSuggestedBinding.malloc(stack).action(rightClick).binding(buffer7.get(0)))
 					.put(4,XrActionSuggestedBinding.malloc(stack).action(middleClick).binding(buffer8.get(0)))
+					.put(5,XrActionSuggestedBinding.malloc(stack).action(aButton).binding(buffer9.get(0)))
+					.put(6,XrActionSuggestedBinding.malloc(stack).action(bButton).binding(buffer10.get(0)))
 			;
 
 			check(xrSuggestInteractionProfileBindings(
@@ -1478,6 +1549,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			.add(GL43C.GL_VERTEX_SHADER, "verthud.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud.glsl");
 
+	static final com.vr.Shader MENU_PROGRAM = new Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "vertmenu.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fragui.glsl");
+
 	static final com.vr.Shader HUD2_PROGRAM = new Shader()
 			.add(GL43C.GL_VERTEX_SHADER, "verthud2.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud2.glsl");
@@ -1488,6 +1563,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glProgram = PROGRAM.compile(template);
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
+		glMenuProgram = MENU_PROGRAM.compile(template);
 		hudHelper.glHud3Program = HUD3_PROGRAM.compile(template);
 		hudHelper.glHudProgram = HUD_PROGRAM.compile(template);
 		hudHelper.glHud2Program = HUD2_PROGRAM.compile(template);
@@ -1545,6 +1621,19 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		uniCursor = GL43C.glGetUniformLocation(glHandProgram, "cursor");
 		uniHandColor = GL43C.glGetUniformLocation(glHandProgram, "color");
 
+		uniMenuTex = GL43C.glGetUniformLocation(glMenuProgram, "tex");
+		uniMenuTexSamplingMode = GL43C.glGetUniformLocation(glMenuProgram, "samplingMode");
+		uniMenuTexTargetDimensions = GL43C.glGetUniformLocation(glMenuProgram, "targetDimensions");
+		uniMenuTexSourceDimensions = GL43C.glGetUniformLocation(glMenuProgram, "sourceDimensions");
+		uniMenuColorBlindMode = GL43C.glGetUniformLocation(glMenuProgram, "colorBlindMode");
+		uniMenuAlphaOverlay = GL43C.glGetUniformLocation(glMenuProgram, "alphaOverlay");
+
+		uniMenuMap = GL43C.glGetUniformLocation(glMenuProgram, "map");
+		uniMenuProjection = GL43C.glGetUniformLocation(glMenuProgram, "projection");
+		uniMenuProjection2 = GL43C.glGetUniformLocation(glMenuProgram, "projection2");
+		uniMenuView = GL43C.glGetUniformLocation(glMenuProgram, "viewMatrix");
+		uniMenuLoc = GL43C.glGetUniformLocation(glMenuProgram, "loc");
+
 		if (computeMode == ComputeMode.OPENGL)
 		{
 			uniBlockSmall = GL43C.glGetUniformBlockIndex(glSmallComputeProgram, "uniforms");
@@ -1571,6 +1660,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		GL43C.glDeleteProgram(glHandProgram);
 		glHandProgram = -1;
+
+		GL43C.glDeleteProgram(glMenuProgram);
+		glMenuProgram = -1;
 	}
 
 	private void initVao()
@@ -1598,6 +1690,20 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glEnableVertexAttribArray(1);
 		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, tmpUvBuffer.glBufferId);
 		GL43C.glVertexAttribPointer(1, 4, GL43C.GL_FLOAT, false, 0, 0);
+
+		vaoMenuHandle = GL43C.glGenVertexArrays();
+		vboMenuHandle = GL43C.glGenBuffers();
+		glBindVertexArray(vaoMenuHandle);
+		glBindBuffer(GL_ARRAY_BUFFER, vboMenuHandle);
+		GL43C.glBufferData(GL_ARRAY_BUFFER, GL43C.GL_FLOAT * 6 * 5, GL_DYNAMIC_DRAW);
+		GL43C.glVertexAttribPointer(0, 3, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 0);
+		GL43C.glEnableVertexAttribArray(0);
+
+		// texture coord attribute
+		GL43C.glVertexAttribPointer(1, 2, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 3 * Float.BYTES);
+		GL43C.glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 
 		// Create UI VAO
 		vaoUiHandle = GL43C.glGenVertexArrays();
@@ -1745,13 +1851,26 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MIN_FILTER, GL43C.GL_LINEAR);
 		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MAG_FILTER, GL43C.GL_LINEAR);
 		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+
+		menuPbo = GL43C.glGenBuffers();
+
+		menuTexture = GL43C.glGenTextures();
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, menuTexture);
+		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_WRAP_S, GL43C.GL_CLAMP_TO_EDGE);
+		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_WRAP_T, GL43C.GL_CLAMP_TO_EDGE);
+		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MIN_FILTER, GL43C.GL_LINEAR);
+		GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MAG_FILTER, GL43C.GL_LINEAR);
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
 	}
 
 	private void shutdownInterfaceTexture()
 	{
 		GL43C.glDeleteBuffers(interfacePbo);
 		GL43C.glDeleteTextures(interfaceTexture);
+		GL43C.glDeleteBuffers(menuPbo);
+		GL43C.glDeleteTextures(menuTexture);
 		interfaceTexture = -1;
+		menuTexture = -1;
 	}
 
 	private void initUniformBuffer()
@@ -2089,6 +2208,48 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
 	}
 
+	int lastMenuWidth = -1;
+	int lastMenuHeight = -1;
+	private void prepareMenuTexture(int menuWidth, int menuHeight)
+	{
+		if (menuWidth != lastMenuWidth || menuHeight != lastMenuHeight)
+		{
+			lastMenuWidth = menuWidth;
+			lastMenuHeight = menuHeight;
+			GL43C.glBindBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER, menuPbo);
+			GL43C.glBufferData(GL43C.GL_PIXEL_UNPACK_BUFFER, menuWidth * menuHeight * 4L, GL43C.GL_STREAM_DRAW);
+			GL43C.glBindBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER, 0);
+
+			GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, menuTexture);
+			GL43C.glTexImage2D(GL43C.GL_TEXTURE_2D, 0, GL43C.GL_RGBA, menuWidth, menuHeight, 0, GL43C.GL_BGRA, GL43C.GL_UNSIGNED_BYTE, 0);
+			GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+		}
+
+		final BufferProvider bufferProvider = client.getBufferProvider();
+		final int[] pixels = bufferProvider.getPixels();
+		final int[] unpackPixels = new int[menuWidth*menuHeight];
+		int k = 0;
+		for(int i = client.getMenuY(); i < client.getMenuY()+menuHeight; i++){
+			for(int j = client.getMenuX(); j < client.getMenuX()+menuWidth; j++){
+				if(lastCanvasWidth*i+j < lastCanvasWidth*lastCanvasHeight) {
+					unpackPixels[k++] = pixels[lastCanvasWidth * i + j];
+				} else {
+					unpackPixels[k++] = 0;
+				}
+			}
+		}
+
+		GL43C.glBindBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER, menuPbo);
+		GL43C.glMapBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER, GL43C.GL_WRITE_ONLY)
+				.asIntBuffer()
+				.put(unpackPixels, 0, menuWidth*menuHeight);
+		GL43C.glUnmapBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER);
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, menuTexture);
+		GL43C.glTexSubImage2D(GL43C.GL_TEXTURE_2D, 0, 0, 0, menuWidth, menuHeight, GL43C.GL_BGRA, GL43C.GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+		GL43C.glBindBuffer(GL43C.GL_PIXEL_UNPACK_BUFFER, 0);
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+	}
+
 	private void renderFrameOpenXR(int sky, float brightness, GameState gameState,int overlayColor, float viewportWidth, float viewportHeight) {
 		pollEvents();
 		try (MemoryStack stack = stackPush()) {
@@ -2149,6 +2310,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			XrActionStateBoolean lClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			XrActionStateBoolean rClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			XrActionStateBoolean mClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			XrActionStateBoolean aClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			XrActionStateBoolean bClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			check(xrGetActionStateBoolean(
 					xrSession,
 					XrActionStateGetInfo.malloc(stack)
@@ -2176,6 +2339,24 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 							.subactionPath(rightHandPath),
 					mClick
 			));
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(aButton)
+							.subactionPath(rightHandPath),
+					aClick
+			));
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(bButton)
+							.subactionPath(rightHandPath),
+					bClick
+			));
 			if(lClick.changedSinceLastSync()){
 				robot.leftClick(lClick.currentState());
 			}
@@ -2183,7 +2364,16 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				robot.rightClick(rClick.currentState());
 			}
 			if(mClick.changedSinceLastSync()){
-				robot.middleClick(mClick.currentState());
+				if(state != HandSelectState.SELECTING)
+					robot.middleClick(mClick.currentState());
+			}
+			if(aClick.changedSinceLastSync()){
+				if(state == HandSelectState.SELECTING)
+					robot.selectDown(aClick.currentState());
+			}
+			if(bClick.changedSinceLastSync()){
+				if(state == HandSelectState.SELECTING)
+					robot.selectUp(bClick.currentState());
 			}
 
 			check(xrBeginFrame(
@@ -2311,15 +2501,6 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private static FloatBuffer mvpMatrix = BufferUtils.createFloatBuffer(16);
 	//int screenShader = ShadersGL.createShaderProgram(ShadersGL.screenVertShader, ShadersGL.texFragShader);
-	@Subscribe
-	public void onMenuOpened(final MenuOpened event){
-		state = HandSelectState.SELECTING;
-	}
-
-	@Subscribe
-	public void onMenuOptionClicked(MenuOptionClicked menuOptionClicked){
-		state = HandSelectState.IDLE;
-	}
 
 	private void OpenGLRenderView(int sky, float brightness, GameState gameState, XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex, float viewportWidth, float viewportHeight, int overlayColor) {
 		GL43C.glUseProgram(glProgram);
@@ -2502,13 +2683,27 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			mapMatrix.identity();
 			cursorMatrix.translation(playAreaIntersect.x(), playAreaIntersect.y(), playAreaIntersect.z());
 
-			boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
+			if(!client.isMenuOpen()) {
+				state = HandSelectState.IDLE;
+			} else {
+				if(state != HandSelectState.SELECTING){
+					robot.startSelecting(client);
+				}
+				state = HandSelectState.SELECTING;
+			}
 			if (state != HandSelectState.SELECTING) {
+				boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
 				state = !inBounds ? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
 			}
 
+			//prepareTopTexture(overlayColor, viewportHeight, viewportWidth, viewMatrix, projectionMatrix, mapMatrix);
+
 			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
 			drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);
+			if(client.isMenuOpen()){
+				glClear(GL_DEPTH_BUFFER_BIT);
+				drawMenu(overlayColor, client.getMenuWidth(), client.getMenuHeight(), viewMatrix, projectionMatrix, projectionMatrix2, mapMatrix);
+			}
 
 			/*Matrix4f matrix = new Matrix4f(
 					projectionMatrix2[0],
@@ -2583,6 +2778,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		final int viewportWidth = client.getViewportWidth();
 
 		prepareInterfaceTexture(canvasWidth, canvasHeight);
+		if(client.isMenuOpen()) {
+			final int menuHeight = client.getMenuHeight();
+			final int menuWidth = client.getMenuWidth();
+			prepareMenuTexture(menuWidth, menuHeight);
+		}
 
 		// Setup anti-aliasing
 		final AntiAliasingMode antiAliasingMode = config.antiAliasingMode();
@@ -2944,6 +3144,91 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glDisable(GL43C.GL_BLEND);
 	}
 
+	//TODO: Move this inside the XR rendering.
+	private void drawMenu(final int overlayColor, final int menuHeight, final int menuWidth, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2, Matrix4f mapMatrix)
+	{
+		GL43C.glEnable(GL43C.GL_BLEND);
+		GL43C.glBlendFunc(GL43C.GL_ONE, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, menuTexture);
+
+		// Use the texture bound in the first pass
+		final UIScalingMode uiScalingMode = config.uiScalingMode();
+		GL43C.glUseProgram(glMenuProgram);
+		GL43C.glUniformMatrix4fv(uniMenuView, false, viewMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniMenuProjection, false, projectionMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniMenuProjection2, false, projectionMatrix2);
+		GL43C.glUniformMatrix4fv(uniMenuMap, false, mapMatrix.get(mvpMatrix));
+		GL43C.glUniform1i(uniMenuTex, 0);
+		GL43C.glUniform1i(uniMenuTexSamplingMode, uiScalingMode.getMode());
+		GL43C.glUniform2i(uniMenuTexSourceDimensions, menuWidth, menuHeight);
+		GL43C.glUniform1i(uniMenuColorBlindMode, config.colorBlindMode().ordinal());
+		GL43C.glUniform4f(uniMenuAlphaOverlay,
+				(overlayColor >> 16 & 0xFF) / 255f,
+				(overlayColor >> 8 & 0xFF) / 255f,
+				(overlayColor & 0xFF) / 255f,
+				(overlayColor >>> 24) / 255f
+		);
+
+		GL43C.glUniform2i(uniMenuTexTargetDimensions, menuWidth, menuHeight);
+
+		// Set the sampling function used when stretching the UI.
+		// This is probably better done with sampler objects instead of texture parameters, but this is easier and likely more portable.
+		// See https://www.khronos.org/opengl/wiki/Sampler_Object for details.
+		if (client.isStretchedEnabled())
+		{
+			// GL_NEAREST makes sampling for bicubic/xBR simpler, so it should be used whenever linear isn't
+			final int function = uiScalingMode == UIScalingMode.LINEAR ? GL43C.GL_LINEAR : GL43C.GL_NEAREST;
+			GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MIN_FILTER, function);
+			GL43C.glTexParameteri(GL43C.GL_TEXTURE_2D, GL43C.GL_TEXTURE_MAG_FILTER, function);
+		}
+
+		// Texture on UI
+
+		float[] real;
+		if(menuTileX!=null && menuTileY!=null) real = new float[]{menuTileX << Perspective.LOCAL_COORD_BITS, 0, menuTileY << Perspective.LOCAL_COORD_BITS, 1.0f};
+		else real = new float[]{0, 0, 0, 1.0f};
+		GL43C.glUniform4fv(uniMenuLoc, real);
+
+		//GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+		// Texture on UI
+		GL43C.glBindVertexArray(vaoMenuHandle);
+		float scale = 0.002f;
+
+		float ypos = menuIntersect.y/1.0f;
+		float zpos = (menuTileX!=null && menuTileY!=null)?0:1.0f;
+		float xpos = (menuTileX!=null && menuTileY!=null)?0:(menuIntersect.x/1.0f);
+
+		float w = client.getMenuWidth()*scale;
+		float h = client.getMenuHeight()*scale;
+		float tiles = menuActor==null?0:((((menuActor.getWorldArea().getWidth()-1)/2)+((menuActor.getWorldArea().getHeight()-1)/2))/2.0f);
+		//System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
+		// update VBO for each character
+		float[] vertices = new float[]{
+				xpos,    ypos + h,   zpos+0.044f+0.088f*tiles, 0.0f, 0.0f ,
+				xpos,     ypos,      zpos+0.044f+0.088f*tiles,0.0f, 1.0f ,
+				xpos+w, ypos,      zpos+0.044f+0.088f*tiles,1.0f, 1.0f ,
+
+				xpos,     ypos + h,  zpos+0.044f+0.088f*tiles,0.0f, 0.0f ,
+				xpos+w, ypos,      zpos+0.044f+0.088f*tiles,1.0f, 1.0f ,
+				xpos+w, ypos + h,  zpos+0.044f+0.088f*tiles,1.0f, 0.0f };
+		// update content of VBO memory
+		glBindBuffer(GL_ARRAY_BUFFER, vboMenuHandle);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		// render quad
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+
+		// Reset
+		GL43C.glBindVertexArray(0);
+		GL43C.glUseProgram(0);
+
+		// Reset
+		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+		GL43C.glBindVertexArray(0);
+		GL43C.glUseProgram(0);
+	}
+
 	/**
 	 * Convert the front framebuffer to an Image
 	 *
@@ -3023,6 +3308,95 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		//hudHelper.updateLocations();
 		hudHelper.cullHealthbars(client.getGameCycle());
 		hudHelper.cullHitsplats(client.getGameCycle());
+	}
+
+	Integer menuTileX = null;
+	Integer menuTileY = null;
+	Actor menuActor = null;
+
+	Vector3f menuIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
+
+	@Subscribe
+	public void onMenuOpened(MenuOpened menoOpened)
+	{
+		MenuEntry[] menuEntries = client.getMenuEntries();
+		if (menuEntries.length == 0)
+		{
+			menuActor = null;
+			menuTileX = null;
+			menuTileY = null;
+		} else {
+			MenuEntry entry = menuEntries[menuEntries.length - 1];
+			MenuAction menuAction = entry.getType();
+
+			switch (menuAction) {
+				case WIDGET_TARGET_ON_GAME_OBJECT:
+				case GAME_OBJECT_FIRST_OPTION:
+				case GAME_OBJECT_SECOND_OPTION:
+				case GAME_OBJECT_THIRD_OPTION:
+				case GAME_OBJECT_FOURTH_OPTION:
+				case GAME_OBJECT_FIFTH_OPTION:
+				case EXAMINE_OBJECT: {
+					menuActor = null;
+					menuTileX = entry.getParam0();
+					menuTileY = entry.getParam1();
+					//System.out.println("GROUND:"+menuTileX+" "+menuTileY);
+					break;
+				}
+				case EXAMINE_ITEM_GROUND:
+				case GROUND_ITEM_FIRST_OPTION:
+				case GROUND_ITEM_SECOND_OPTION:
+				case GROUND_ITEM_THIRD_OPTION:
+				case GROUND_ITEM_FOURTH_OPTION:
+				case GROUND_ITEM_FIFTH_OPTION:
+				case WALK: {
+					menuActor = null;
+					Tile tile = client.getSelectedSceneTile();
+					menuTileX = tile.getLocalLocation().getSceneX();
+					menuTileY = tile.getLocalLocation().getSceneY();
+					//System.out.println("GROUND:"+menuTileX+" "+menuTileY);
+					break;
+				}
+				case WIDGET_TARGET_ON_NPC:
+				case NPC_FIRST_OPTION:
+				case NPC_SECOND_OPTION:
+				case NPC_THIRD_OPTION:
+				case NPC_FOURTH_OPTION:
+				case NPC_FIFTH_OPTION:
+				case EXAMINE_NPC:
+				case PLAYER_FIRST_OPTION:
+				case PLAYER_SECOND_OPTION:
+				case PLAYER_THIRD_OPTION:
+				case PLAYER_FOURTH_OPTION:
+				case PLAYER_FIFTH_OPTION:
+				case PLAYER_SIXTH_OPTION:
+				case PLAYER_SEVENTH_OPTION:
+				case PLAYER_EIGHTH_OPTION: {
+					menuActor = entry.getActor();
+					menuTileX = menuActor.getLocalLocation().getSceneX();
+					menuTileY = menuActor.getLocalLocation().getSceneY();
+					//System.out.println("ACTOR:"+menuTileX+" "+menuTileY);
+					break;
+				}
+				default:
+					menuActor = null;
+					menuTileX = null;
+					menuTileY = null;
+			}
+		}
+		if(rightPose != null) {
+			menuIntersect = CalcHelper.getPlayAreaIntersect(rightPose.position$(), rightPose.orientation());
+		} else {
+			menuIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
+		}
+		int curY = client.getMenuY()+19;
+		for(int i = client.getMenuEntries().length-1; i>=0 ;i--){
+			curY+=15;
+			if(curY >= lastCanvasHeight){
+				client.createMenuEntry(i+1).setOption("Cancel")
+				.setTarget("").setType(MenuAction.CANCEL);
+			}
+		}
 	}
 
 	@Override
