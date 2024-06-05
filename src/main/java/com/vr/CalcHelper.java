@@ -30,6 +30,18 @@ public class CalcHelper {
         }
     }
 
+    static Vector3f getMapPlaneIntersect(XrVector3f lPosition, XrQuaternionf lRotation, XrVector3f rPosition, XrQuaternionf rRotation, float xoffset, float yoffset, float zoffset){
+        float z = lPosition.z()+zoffset;
+        Vector3f v3 = new Vector3f(0,0,1).rotate(new Quaternionf(rRotation.x(),rRotation.y(),rRotation.z(),rRotation.w()));
+        float a = v3.x();
+        float b = v3.y();
+        float c = v3.z();
+        float zDist = rPosition.z()-z;
+        float x = rPosition.x()+zDist*a/c;
+        float y = rPosition.y()-zDist*b/c;
+        return new Vector3f(x-lPosition.x()-xoffset,y-lPosition.y()-yoffset,z);
+    }
+
     public static final HashMap<Character, Integer> fontWidths = new HashMap<>();
     static{
         fontWidths.put('a',6);

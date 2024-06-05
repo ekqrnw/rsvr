@@ -125,6 +125,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	XrAction                       aButton;
 	XrAction                       bButton;
+
+	XrAction                       xButton;
 	XrAction                       pose;
 
 	XrPosef                        leftPose;
@@ -864,6 +866,21 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					XrActionCreateInfo.malloc(stack)
 							.type$Default()
 							.next(NULL)
+							.actionName(GpuByteBuffer.getBuffer("x_click"))
+							.localizedActionName(GpuByteBuffer.getBuffer("X Click"))
+							.actionType(XR_ACTION_TYPE_BOOLEAN_INPUT)
+							.countSubactionPaths(2)
+							.subactionPaths(uniBuffer),
+					pp
+			));
+
+			xButton = new XrAction(pp.get(0),xrActionSet);
+
+			check(xrCreateAction(
+					xrActionSet,
+					XrActionCreateInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
 							.actionName(GpuByteBuffer.getBuffer("pose"))
 							.localizedActionName(GpuByteBuffer.getBuffer("Pose"))
 							.actionType(XR_ACTION_TYPE_POSE_INPUT)
@@ -885,6 +902,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			LongBuffer buffer8 = stack.mallocLong(1);
 			LongBuffer buffer9 = stack.mallocLong(1);
 			LongBuffer buffer10 = stack.mallocLong(1);
+			LongBuffer buffer11 = stack.mallocLong(1);
 
 			check(xrStringToPath(xrInstance, "/user/hand/left/input/aim/pose", buffer4));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/aim/pose", buffer5));
@@ -893,9 +911,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/thumbstick/click", buffer8));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/a/click", buffer9));
 			check(xrStringToPath(xrInstance, "/user/hand/right/input/b/click", buffer10));
+			check(xrStringToPath(xrInstance, "/user/hand/left/input/x/click", buffer11));
 
 			//TODO: THIS DOES IT
-			XrActionSuggestedBinding.Buffer suggested = XrActionSuggestedBinding.malloc(7, stack)
+			XrActionSuggestedBinding.Buffer suggested = XrActionSuggestedBinding.malloc(8, stack)
 					.put(0,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer4.get(0)))
 					.put(1,XrActionSuggestedBinding.malloc(stack).action(pose).binding(buffer5.get(0)))
 					.put(2,XrActionSuggestedBinding.malloc(stack).action(leftClick).binding(buffer6.get(0)))
@@ -903,6 +922,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					.put(4,XrActionSuggestedBinding.malloc(stack).action(middleClick).binding(buffer8.get(0)))
 					.put(5,XrActionSuggestedBinding.malloc(stack).action(aButton).binding(buffer9.get(0)))
 					.put(6,XrActionSuggestedBinding.malloc(stack).action(bButton).binding(buffer10.get(0)))
+					.put(7,XrActionSuggestedBinding.malloc(stack).action(xButton).binding(buffer11.get(0)))
 			;
 
 			check(xrSuggestInteractionProfileBindings(
@@ -2312,6 +2332,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			XrActionStateBoolean mClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			XrActionStateBoolean aClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			XrActionStateBoolean bClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
+			XrActionStateBoolean xClick = XrActionStateBoolean.malloc(stack).type$Default().next(NULL);
 			check(xrGetActionStateBoolean(
 					xrSession,
 					XrActionStateGetInfo.malloc(stack)
@@ -2357,11 +2378,25 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 							.subactionPath(rightHandPath),
 					bClick
 			));
+			check(xrGetActionStateBoolean(
+					xrSession,
+					XrActionStateGetInfo.malloc(stack)
+							.type$Default()
+							.next(NULL)
+							.action(xButton)
+							.subactionPath(leftHandPath),
+					xClick
+			));
 			if(lClick.changedSinceLastSync()){
 				robot.leftClick(lClick.currentState());
 			}
 			if(rClick.changedSinceLastSync()){
 				robot.rightClick(rClick.currentState());
+			}
+			if(xClick.changedSinceLastSync()){
+				if(!xClick.currentState()){
+					mapVisible = !mapVisible;
+				}
 			}
 			if(mClick.changedSinceLastSync()){
 				if(state != HandSelectState.SELECTING)
@@ -2502,6 +2537,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private static FloatBuffer mvpMatrix = BufferUtils.createFloatBuffer(16);
 	//int screenShader = ShadersGL.createShaderProgram(ShadersGL.screenVertShader, ShadersGL.texFragShader);
 
+	private boolean hovering = false;
 	private void OpenGLRenderView(int sky, float brightness, GameState gameState, XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex, float viewportWidth, float viewportHeight, int overlayColor) {
 		GL43C.glUseProgram(glProgram);
 
@@ -2680,29 +2716,45 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			//mapMatrix.translation(rightPose.position$().x(), (float) rightPose.position$().y(), (float) rightPose.position$().z())
 			//		.rotate(new Quaternionf(rightPose.orientation().x(), rightPose.orientation().y(), rightPose.orientation().z(), rightPose.orientation().w()))
 			//		.translate(-(playAreaIntersect.x()+1)*0.15f*VRRobot.estimatedXRatio, -(playAreaIntersect.y()-1)*0.15f*VRRobot.estimatedYRatio, (float) 0.0);
-			mapMatrix.identity();
+
 			cursorMatrix.translation(playAreaIntersect.x(), playAreaIntersect.y(), playAreaIntersect.z());
 
-			if(!client.isMenuOpen()) {
-				state = HandSelectState.IDLE;
-			} else {
-				if(state != HandSelectState.SELECTING){
-					robot.startSelecting(client);
+			if(leftPose != null && (forceMap || mapVisible)) {
+				mapMatrix.translation(leftPose.position$().x()+0.21f, (float) leftPose.position$().y()+0.21f, (float) leftPose.position$().z()-0.01f);
+				Vector3f mapPlaneIntersect = CalcHelper.getMapPlaneIntersect(leftPose.position$(), leftPose.orientation(), rightPose.position$(), rightPose.orientation(), 0.21f, 0.21f, -0.01f);
+				float dist = new Vector3f(leftPose.position$().x(),leftPose.position$().y(),leftPose.position$().z()).add(new Vector3f(0.21f,0.21f,0.01f)).distance(new Vector3f(rightPose.position$().x(),rightPose.position$().y(),rightPose.position$().z()));
+				if(Math.abs(mapPlaneIntersect.x) <= 0.2 && Math.abs(mapPlaneIntersect.y) <= 0.2 && dist <= 0.22*Math.sqrt(2.0) && rightPose.position$().z()-(leftPose.position$().z()-0.01f)<0.05){
+					hovering = true;
+					robot.setCursorByMapPct((mapPlaneIntersect.x+0.2f)/0.4f, (mapPlaneIntersect.y+0.2f)/0.4f);
+				} else {
+					hovering = false;
 				}
-				state = HandSelectState.SELECTING;
+			} else {
+				hovering = false;
 			}
-			if (state != HandSelectState.SELECTING) {
-				boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
-				state = !inBounds ? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
+
+			if(!hovering){
+				if (!client.isMenuOpen()) {
+					state = HandSelectState.IDLE;
+				} else {
+					if (state != HandSelectState.SELECTING) {
+						robot.startSelecting(client);
+					}
+					state = HandSelectState.SELECTING;
+				}
+				if (state != HandSelectState.SELECTING) {
+					boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
+					state = !inBounds ? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
+				}
 			}
 
 			//prepareTopTexture(overlayColor, viewportHeight, viewportWidth, viewMatrix, projectionMatrix, mapMatrix);
+			drawCursor(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
+			//drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);//mapMatrix);
 
-			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
-			drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);
-			if(client.isMenuOpen()){
+			if(client.isMenuOpen() && !hovering){
 				glClear(GL_DEPTH_BUFFER_BIT);
-				drawMenu(overlayColor, client.getMenuWidth(), client.getMenuHeight(), viewMatrix, projectionMatrix, projectionMatrix2, mapMatrix);
+				drawMenu(overlayColor, client.getMenuWidth(), client.getMenuHeight(), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
 			}
 
 			/*Matrix4f matrix = new Matrix4f(
@@ -2727,6 +2779,12 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			//glDisable(GL_DEPTH_TEST);
 			glClear(GL_DEPTH_BUFFER_BIT);
 			hudHelper.drawHud(viewMatrix, projectionMatrix, projectionMatrix2);
+
+			glClear(GL_DEPTH_BUFFER_BIT);
+			drawHand(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
+			if(mapVisible || forceMap) {
+				drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);//mapMatrix);
+			}
 			//glEnable(GL_DEPTH_TEST);
 		}
 
@@ -3033,6 +3091,54 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		checkGLErrors();
 	}
 
+	private void drawCursor(Matrix4f viewMatrix, Matrix4f handMatrix, Matrix4f cursorMatrix, Matrix4f projectionMatrix, HandSelectState state)
+	{
+		GL43C.glEnable(GL43C.GL_BLEND);
+		// Use the texture bound in the first pass
+		GL43C.glUseProgram(glHandProgram);
+		GL43C.glUniformMatrix4fv(uniHandView, false, viewMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniCursor, false, cursorMatrix.get(mvpMatrix));
+		GL43C.glUniformMatrix4fv(uniHandProjection, false, projectionMatrix.get(mvpMatrix));
+		if(hovering){
+			GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.00f);
+		} else {
+			switch (state) {
+				case IDLE:
+					GL43C.glUniform4f(uniHandColor, 255.0f, 255.0f, 255.0f, 0.25f);
+					break;
+				case HOVERING:
+					break;
+				case SELECTING:
+					GL43C.glUniform4f(uniHandColor, 255.0f, 255.0f, 255.0f, 0.00f);
+					break;
+				case OUT_OF_BOUNDS:
+					GL43C.glUniform4f(uniHandColor, 255.0f, 0.0f, 0.0f, 0.25f);
+					break;
+			}
+		}
+
+		// Texture on UI
+		GL43C.glBindVertexArray(vaoHandHandle);
+		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, 12);
+
+		GL43C.glBindVertexArray(0);
+		GL43C.glUseProgram(0);
+		GL43C.glDisable(GL43C.GL_BLEND);
+		//System.out.println(canvas.getLocationOnScreen());
+	}
+
+	boolean forceMap = false;
+	boolean mapVisible = true;
+	@Subscribe
+	void onWidgetLoaded(WidgetLoaded widgetLoaded){
+		forceMap = true;
+		//System.out.println("WIDGET: "+widgetLoaded.getGroupId());
+	}
+	@Subscribe
+	void onWidgetClosed(WidgetClosed widgetClosed){
+		forceMap = false;
+		//System.out.println("WIDGET: "+widgetLoaded.getGroupId());
+	}
 	private void drawHand(Matrix4f viewMatrix, Matrix4f handMatrix, Matrix4f cursorMatrix, Matrix4f projectionMatrix, HandSelectState state)
 	{
 		GL43C.glEnable(GL43C.GL_BLEND);
@@ -3041,38 +3147,23 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glUniformMatrix4fv(uniHandView, false, viewMatrix.get(mvpMatrix));
 		GL43C.glUniformMatrix4fv(uniCursor, false, cursorMatrix.get(mvpMatrix));
 		GL43C.glUniformMatrix4fv(uniHandProjection, false, projectionMatrix.get(mvpMatrix));
-		switch(state){
-			case IDLE:
-				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.25f);
-				break;
-			case HOVERING:
-				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,0.0f,0.25f);
-				break;
-			case SELECTING:
-				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.00f);
-				break;
-			case OUT_OF_BOUNDS:
-				GL43C.glUniform4f(uniHandColor, 255.0f,0.0f,0.0f,0.25f);
-				break;
-		}
 
-		// Texture on UI
-		GL43C.glBindVertexArray(vaoHandHandle);
-		GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, 12);
-
-		switch(state){
-			case IDLE:
-				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,255.0f,0.25f);
-				break;
-			case HOVERING:
-				GL43C.glUniform4f(uniHandColor, 255.0f,255.0f,0.0f,0.25f);
-				break;
-			case SELECTING:
-				GL43C.glUniform4f(uniHandColor, 00.0f,00.0f,255.0f,0.25f);
-				break;
-			case OUT_OF_BOUNDS:
-				GL43C.glUniform4f(uniHandColor, 255.0f,0.0f,0.0f,0.25f);
-				break;
+		if(hovering){
+			GL43C.glUniform4f(uniHandColor, 255.0f, 255.0f, 255.0f, 0.75f);
+		} else {
+			switch (state) {
+				case IDLE:
+					GL43C.glUniform4f(uniHandColor, 255.0f, 255.0f, 255.0f, 0.25f);
+					break;
+				case HOVERING:
+					break;
+				case SELECTING:
+					GL43C.glUniform4f(uniHandColor, 00.0f, 00.0f, 255.0f, 0.25f);
+					break;
+				case OUT_OF_BOUNDS:
+					GL43C.glUniform4f(uniHandColor, 255.0f, 0.0f, 0.0f, 0.25f);
+					break;
+			}
 		}
 
 		GL43C.glUniformMatrix4fv(uniCursor, false, handMatrix.get(mvpMatrix));
@@ -3089,7 +3180,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private void drawUi(final int overlayColor, final int canvasHeight, final int canvasWidth, Matrix4f viewMatrix, Matrix4f projectionMatrix, Matrix4f mapMatrix)
 	{
 		GL43C.glEnable(GL43C.GL_BLEND);
-		GL43C.glBlendFunc(GL43C.GL_ONE, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+		GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
 		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, interfaceTexture);
 
 		// Use the texture bound in the first pass

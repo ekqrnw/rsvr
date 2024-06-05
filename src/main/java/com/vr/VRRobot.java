@@ -53,6 +53,11 @@ public class VRRobot {
         return !outOfBounds;
     }
 
+    void setCursorByMapPct(float pctX, float pctY){
+        Point point = canvas.getLocationOnScreen();
+        robot.mouseMove(point.x+(int)(canvas.getWidth()*pctX), point.y+(int)(canvas.getHeight()*(1-pctY)));
+    }
+
     Vector2i translateUnitSquareToPlayableArea(int x1, int y1, float w, float h, float x, float y){
         if(x < -1){ x = -1; } if(x > 1){ x = 1; } if(y < -1){ y = -1; } if(y > 1){ y = 1; }
         return new Vector2i(x1+(int)(w*(x+1.0f)/2.0f), y1+(int)(h*(y+1.0f)/2.0f));
