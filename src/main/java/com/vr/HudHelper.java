@@ -509,6 +509,12 @@ public class HudHelper {
         }
     }
 
+    public void cullAll(){
+        actors.clear();
+        healthbars.clear();
+        hitsplats.clear();
+    }
+
     void drawAll(Actor actor, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
         if((actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) && !healthbars.containsKey(actor)) {}
         else {

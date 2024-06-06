@@ -70,8 +70,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.nio.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -2534,6 +2533,12 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		return true;
 	}
 
+	@Subscribe
+	void onWorldChanged(WorldChanged worldChanged){
+		forceMap = false;
+		hudHelper.cullAll();
+	}
+
 	private static FloatBuffer mvpMatrix = BufferUtils.createFloatBuffer(16);
 	//int screenShader = ShadersGL.createShaderProgram(ShadersGL.screenVertShader, ShadersGL.texFragShader);
 
@@ -3129,15 +3134,64 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	boolean forceMap = false;
 	boolean mapVisible = true;
+
+	ArrayList<Integer> exemptWidgets = new ArrayList<>();
+	{
+		exemptWidgets.add(548);
+		exemptWidgets.add(162);
+		exemptWidgets.add(651);
+		exemptWidgets.add(708);
+		exemptWidgets.add(163);
+		exemptWidgets.add(303);
+		exemptWidgets.add(160);
+		exemptWidgets.add(122);
+		exemptWidgets.add(728);
+		exemptWidgets.add(320);
+		exemptWidgets.add(629);
+		exemptWidgets.add(259);
+		exemptWidgets.add(149);
+		exemptWidgets.add(387);
+		exemptWidgets.add(541);
+		exemptWidgets.add(218);
+		exemptWidgets.add(429);
+		exemptWidgets.add(109);
+		exemptWidgets.add(182);
+		exemptWidgets.add(116);
+		exemptWidgets.add(216);
+		exemptWidgets.add(239);
+		exemptWidgets.add(727);
+		exemptWidgets.add(726);
+		exemptWidgets.add(160);
+		exemptWidgets.add(593);
+		exemptWidgets.add(69);
+	}
+
+	HashSet<Integer> openWidgets = new HashSet<>();
+
+	@Subscribe
+	void onFocusChanged(FocusChanged focusChanged){
+		if(!focusChanged.isFocused()){
+			shutDown();
+		}
+	}
+
 	@Subscribe
 	void onWidgetLoaded(WidgetLoaded widgetLoaded){
+		//System.out.println("WIDGET OP: "+widgetLoaded.getGroupId());
+		if(exemptWidgets.contains(widgetLoaded.getGroupId())) return;
+		openWidgets.add(widgetLoaded.getGroupId());
 		forceMap = true;
-		//System.out.println("WIDGET: "+widgetLoaded.getGroupId());
 	}
+
 	@Subscribe
 	void onWidgetClosed(WidgetClosed widgetClosed){
-		forceMap = false;
-		//System.out.println("WIDGET: "+widgetLoaded.getGroupId());
+		/*System.out.println("WIDGET CL: "+widgetClosed.getGroupId());
+		for(Integer widget: openWidgets) {
+			System.out.println("WIDGET: " + widget);
+		}*/
+		if(exemptWidgets.contains(widgetClosed.getGroupId())) return;
+		openWidgets.remove(widgetClosed.getGroupId());
+		if(openWidgets.isEmpty()) forceMap = false;
 	}
 	private void drawHand(Matrix4f viewMatrix, Matrix4f handMatrix, Matrix4f cursorMatrix, Matrix4f projectionMatrix, HandSelectState state)
 	{
