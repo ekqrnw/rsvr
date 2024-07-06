@@ -425,9 +425,9 @@ class SceneUploader
 		vertexBuffer.ensureCapacity(triangleCount * 12);
 		uvBuffer.ensureCapacity(triangleCount * 12);
 
-		final int[] vertexX = model.getVerticesX();
-		final int[] vertexY = model.getVerticesY();
-		final int[] vertexZ = model.getVerticesZ();
+		final float[] vertexX = model.getVerticesX();
+		final float[] vertexY = model.getVerticesY();
+		final float[] vertexZ = model.getVerticesZ();
 
 		final int[] indices1 = model.getFaceIndices1();
 		final int[] indices2 = model.getFaceIndices2();
@@ -496,9 +496,9 @@ class SceneUploader
 			int triangleB = indices2[face];
 			int triangleC = indices3[face];
 
-			vertexBuffer.put(vertexX[triangleA], vertexY[triangleA], vertexZ[triangleA], packAlphaPriority | color1);
-			vertexBuffer.put(vertexX[triangleB], vertexY[triangleB], vertexZ[triangleB], packAlphaPriority | color2);
-			vertexBuffer.put(vertexX[triangleC], vertexY[triangleC], vertexZ[triangleC], packAlphaPriority | color3);
+			vertexBuffer.put((int)vertexX[triangleA], (int)vertexY[triangleA], (int)vertexZ[triangleA], packAlphaPriority | color1);
+			vertexBuffer.put((int)vertexX[triangleB], (int)vertexY[triangleB], (int)vertexZ[triangleB], packAlphaPriority | color2);
+			vertexBuffer.put((int)vertexX[triangleC], (int)vertexY[triangleC], (int)vertexZ[triangleC], packAlphaPriority | color3);
 
 			if (faceTextures != null)
 			{
@@ -602,9 +602,9 @@ class SceneUploader
 	int pushSortedModel(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer, GpuFloatBuffer uvBuffer)
 	{
 		final int vertexCount = model.getVerticesCount();
-		final int[] verticesX = model.getVerticesX();
-		final int[] verticesY = model.getVerticesY();
-		final int[] verticesZ = model.getVerticesZ();
+		final float[] verticesX = model.getVerticesX();
+		final float[] verticesY = model.getVerticesY();
+		final float[] verticesZ = model.getVerticesZ();
 
 		final int faceCount = model.getFaceCount();
 		final int[] indices1 = model.getFaceIndices1();
@@ -631,9 +631,9 @@ class SceneUploader
 
 		for (int v = 0; v < vertexCount; ++v)
 		{
-			int vertexX = verticesX[v];
-			int vertexY = verticesY[v];
-			int vertexZ = verticesZ[v];
+			int vertexX = (int)verticesX[v];
+			int vertexY = (int)verticesY[v];
+			int vertexZ = (int)verticesZ[v];
 
 			if (orientation != 0)
 			{
