@@ -3534,13 +3534,17 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		} else {
 			menuIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
 		}
-		int curY = client.getMenuY()+19;
+		/*int curY = client.getMenuY()+19;
 		for(int i = client.getMenuEntries().length-1; i>=0 ;i--){
 			curY+=15;
-			if(curY >= lastCanvasHeight){
+			if(curY > lastCanvasHeight){
 				client.createMenuEntry(i+1).setOption("Cancel")
 				.setTarget("").setType(MenuAction.CANCEL);
 			}
+		}*/
+		if(client.getMenuY()+19+(15*client.getMenuEntries().length) > lastCanvasHeight){
+			client.createMenuEntry(-1).setOption("Cancel")
+					.setTarget("").setType(MenuAction.CANCEL);
 		}
 	}
 
