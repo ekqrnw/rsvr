@@ -320,7 +320,7 @@ public class HudHelper {
         actors.put(actor, new Act(orientation,x,y,z));
     }
 
-    void drawHitsplats(Actor actor, int xoffset, int yoffset, int zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+    void drawHitsplats(Actor actor, float xoffset, float yoffset, float zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
         Act act = actors.get(actor);
         int x = act.x;
         int y = act.y;
@@ -524,13 +524,13 @@ public class HudHelper {
             }
 
             final int vertexCount = model.getVerticesCount();
-            final int[] verticesX = model.getVerticesX();
-            final int[] verticesY = model.getVerticesY();
-            final int[] verticesZ = model.getVerticesZ();
+            final float[] verticesX = model.getVerticesX();
+            final float[] verticesY = model.getVerticesY();
+            final float[] verticesZ = model.getVerticesZ();
 
-            int xoffset = 0;
-            int zoffset = 0;
-            int yoffset = Integer.MAX_VALUE;
+            float xoffset = 0;
+            float zoffset = 0;
+            float yoffset = Integer.MAX_VALUE;
 
             for (int v = 0; v < vertexCount; ++v) {
 
@@ -549,7 +549,7 @@ public class HudHelper {
         }
     }
 
-    void drawHealthbar(Actor actor, int xoffset, int yoffset, int zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+    void drawHealthbar(Actor actor, float xoffset, float yoffset, float zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
         Act act = actors.get(actor);
         int x = act.x;
         int y = act.y;
@@ -620,7 +620,7 @@ public class HudHelper {
         }
     }
 
-    void drawOverheadText(Actor actor, int xoffset, int yoffset, int zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+    void drawOverheadText(Actor actor, float xoffset, float yoffset, float zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
         Act act = actors.get(actor);
         int x = act.x;
         int y = act.y;
