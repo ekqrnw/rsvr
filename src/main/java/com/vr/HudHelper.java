@@ -661,12 +661,14 @@ public class HudHelper {
             float scale = 0.002f;
             for(char cha: overhead.toCharArray()){
                 Character ch = characters.get(cha);
+                if(ch == null) continue;
                 x2 += ch.bearing.x * scale + ch.size.x * scale;
             }
             x2 /= -2.0f;
 
             for(char cha: overhead.toCharArray()){
                 Character ch = characters.get(cha);
+                if(ch == null) continue;
 
                 float xpos = x2 + ch.bearing.x * scale;
                 float ypos = y2 - (ch.size.y - ch.bearing.y) * scale;
