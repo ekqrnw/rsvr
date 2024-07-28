@@ -1115,11 +1115,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	private boolean pollEvents() {
+	private int pollEvents() {
 		glfwPollEvents();
 		XrEventDataBaseHeader event = readNextOpenXREvent();
 		if (event == null) {
-			return false;
+			return NOTHING_POLLED;
 		}
 
 		do {
@@ -1128,7 +1128,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					XrEventDataInstanceLossPending instanceLossPending = XrEventDataInstanceLossPending.create(event);
 					System.err.printf("XrEventDataInstanceLossPending by %d\n", instanceLossPending.lossTime());
 					//*requestRestart = true;
-					return true;
+					return POLLED;
 				}
 				case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
 					XrEventDataSessionStateChanged sessionStateChangedEvent = XrEventDataSessionStateChanged.create(event);
@@ -1146,7 +1146,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}
 		while (event != null);
 
-		return false;
+		return NOTHING_POLLED;
 	}
 
 	private XrEventDataBaseHeader readNextOpenXREvent() {
@@ -1169,7 +1169,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		throw new IllegalStateException(String.format("[XrResult failure %d in xrPollEvent]", result));
 	}
 
-	boolean OpenXRHandleSessionStateChangedEvent(XrEventDataSessionStateChanged stateChangedEvent) {
+	int OpenXRHandleSessionStateChangedEvent(XrEventDataSessionStateChanged stateChangedEvent) {
 		int oldState = sessionState;
 		sessionState = stateChangedEvent.state();
 
@@ -1177,7 +1177,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		if ((stateChangedEvent.session() != NULL) && (stateChangedEvent.session() != xrSession.address())) {
 			System.err.println("XrEventDataSessionStateChanged for unknown session");
-			return false;
+			return NOTHING_POLLED;
 		}
 
 		switch (sessionState) {
@@ -1192,7 +1192,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 									.primaryViewConfigurationType(viewConfigType)
 					));
 					sessionRunning = true;
-					return false;
+					return NOTHING_POLLED;
 				}
 			}
 			case XR_SESSION_STATE_STOPPING: {
@@ -1200,25 +1200,30 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				sessionRunning = false;
 				log.info("ENDING.");
 				check(xrEndSession(xrSession));
-				shutDown();
-				return false;
+				shutdown();
+				return ENDING_POLLED;
 			}
 			case XR_SESSION_STATE_EXITING: {
 				// Do not attempt to restart because user closed this session.
 				//*requestRestart = false;
-				return true;
+				return POLLED;
 			}
 			case XR_SESSION_STATE_LOSS_PENDING: {
 				// Poll for a new instance.
 				//*requestRestart = true;
-				return true;
+				return POLLED;
 			}
 			default:
-				return false;
+				return NOTHING_POLLED;
 		}
 	}
 
 	HudHelper hudHelper;
+
+	static int NOTHING_POLLED = 0;
+	static int POLLED = 1;
+	static int ENDING_POLLED = 2;
+
 	@Override
 	protected void startUp()
 	{
@@ -1342,7 +1347,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				eventDataBuffer = XrEventDataBuffer.calloc()
 						.type$Default();
 
-				while (!pollEvents() && !glfwWindowShouldClose(window)) {
+				while (pollEvents() == NOTHING_POLLED && !glfwWindowShouldClose(window)) {
 					if (sessionRunning) {
 						break;
 					} else {
@@ -1375,9 +1380,25 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					}
 				});
 
-				shutDown();
+				shutdown();
 			}
 			return true;
+		});
+	}
+
+
+	protected void shutdown(){
+		SwingUtilities.invokeLater(() ->
+		{
+			try
+			{
+				pluginManager.setPluginEnabled(this, false);
+				pluginManager.stopPlugin(this);
+			}
+			catch (PluginInstantiationException ex)
+			{
+				log.error("error stopping plugin", ex);
+			}
 		});
 	}
 
@@ -1399,6 +1420,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				swapchain.images.free();
 			}
 
+			xrDestroySpace(xrHeadSpace);
 			xrDestroySpace(xrAppSpace);
 			if (xrDebugMessenger != null) {
 				xrDestroyDebugUtilsMessengerEXT(xrDebugMessenger);
@@ -2269,8 +2291,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
 	}
 
-	private void renderFrameOpenXR(int sky, float brightness, GameState gameState,int overlayColor, float viewportWidth, float viewportHeight) {
-		pollEvents();
+	private boolean renderFrameOpenXR(int sky, float brightness, GameState gameState,int overlayColor, float viewportWidth, float viewportHeight) {
+		if(pollEvents() == ENDING_POLLED) return false;
 		try (MemoryStack stack = stackPush()) {
 			XrFrameState frameState = XrFrameState.calloc(stack)
 					.type$Default();
@@ -2446,6 +2468,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 							.layerCount(didRender ? layers.remaining() : 0)
 			));
 		}
+		return true;
 	}
 
 	private boolean eye = true;
@@ -3019,7 +3042,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				GL43C.glBindVertexArray(vaoTemp);
 			}*/
 
-			renderFrameOpenXR(sky, (float)textureProvider.getBrightness(), gameState,overlayColor, viewportWidth, viewportHeight);
+			if(!renderFrameOpenXR(sky, (float)textureProvider.getBrightness(), gameState,overlayColor, viewportWidth, viewportHeight)) return;
 
 			/*projectionMatrix = com.vr.Mat4.scale(client.getScale(), client.getScale(), 1);
 			com.vr.Mat4.mul(projectionMatrix, com.vr.Mat4.projection(viewportWidth, viewportHeight, 50));
@@ -3171,7 +3194,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	@Subscribe
 	void onFocusChanged(FocusChanged focusChanged){
 		if(!focusChanged.isFocused()){
-			shutDown();
+			shutdown();
 		}
 	}
 
