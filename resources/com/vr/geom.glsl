@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2024, Ekqrnw <ekqrnw@gmail.com>
  * Copyright (c) 2018, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
