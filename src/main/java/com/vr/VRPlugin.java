@@ -2410,10 +2410,12 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 					xClick
 			));
 			if(lClick.changedSinceLastSync()){
-				robot.leftClick(lClick.currentState());
+				if(state != HandSelectState.OUT_OF_BOUNDS || hovering)
+					robot.leftClick(lClick.currentState());
 			}
 			if(rClick.changedSinceLastSync()){
-				robot.rightClick(rClick.currentState());
+				if(state != HandSelectState.OUT_OF_BOUNDS || hovering)
+					robot.rightClick(rClick.currentState());
 			}
 			if(xClick.changedSinceLastSync()){
 				if(!xClick.currentState()){
@@ -2773,7 +2775,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				}
 				if (state != HandSelectState.SELECTING) {
 					boolean inBounds = robot.setCursorByXY(playAreaIntersect.x(), playAreaIntersect.y());
-					state = !inBounds ? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
+					state = (!inBounds || !isTargetingWorld())? HandSelectState.OUT_OF_BOUNDS : HandSelectState.IDLE;
 				}
 			}
 
@@ -3486,6 +3488,52 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	Actor menuActor = null;
 
 	Vector3f menuIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
+
+	public boolean isTargetingWorld(){
+		MenuEntry[] menuEntries = client.getMenuEntries();
+		if (menuEntries.length == 0)
+		{
+			return false;
+		} else {
+			MenuEntry entry = menuEntries[menuEntries.length - 1];
+			MenuAction menuAction = entry.getType();
+
+			switch (menuAction) {
+				case WIDGET_TARGET_ON_GAME_OBJECT:
+				case GAME_OBJECT_FIRST_OPTION:
+				case GAME_OBJECT_SECOND_OPTION:
+				case GAME_OBJECT_THIRD_OPTION:
+				case GAME_OBJECT_FOURTH_OPTION:
+				case GAME_OBJECT_FIFTH_OPTION:
+				case EXAMINE_OBJECT:
+				case EXAMINE_ITEM_GROUND:
+				case GROUND_ITEM_FIRST_OPTION:
+				case GROUND_ITEM_SECOND_OPTION:
+				case GROUND_ITEM_THIRD_OPTION:
+				case GROUND_ITEM_FOURTH_OPTION:
+				case GROUND_ITEM_FIFTH_OPTION:
+				case WALK:
+				case WIDGET_TARGET_ON_NPC:
+				case NPC_FIRST_OPTION:
+				case NPC_SECOND_OPTION:
+				case NPC_THIRD_OPTION:
+				case NPC_FOURTH_OPTION:
+				case NPC_FIFTH_OPTION:
+				case EXAMINE_NPC:
+				case PLAYER_FIRST_OPTION:
+				case PLAYER_SECOND_OPTION:
+				case PLAYER_THIRD_OPTION:
+				case PLAYER_FOURTH_OPTION:
+				case PLAYER_FIFTH_OPTION:
+				case PLAYER_SIXTH_OPTION:
+				case PLAYER_SEVENTH_OPTION:
+				case PLAYER_EIGHTH_OPTION:
+					return true;
+				default:
+					return false;
+			}
+		}
+	}
 
 	@Subscribe
 	public void onMenuOpened(MenuOpened menoOpened)
