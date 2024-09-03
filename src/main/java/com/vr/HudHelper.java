@@ -39,7 +39,13 @@ import org.lwjgl.opengl.GL43C;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
+import javax.imageio.ImageIO;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -109,7 +115,7 @@ public class HudHelper {
 
     //TileInterpolator interpolator;
 
-    HudHelper() {
+    HudHelper() throws IOException {
         //interpolator = new TileInterpolator();
         uniHud2Projection = GL43C.glGetUniformLocation(glHud2Program, "projection");
         uniHud2Projection2 = GL43C.glGetUniformLocation(glHud2Program, "projection2");
@@ -172,8 +178,8 @@ public class HudHelper {
         glBindVertexArray(0);
         GdxNativesLoader.load();
         FreeType.Library lib = FreeType.initFreeType();
-        File file = new File("resources/com/vr/fonts/runescape.ttf");
-        FreeType.Face face = lib.newFace(new FileHandle(file), 0);
+        byte[] stream = SceneUploader.class.getResourceAsStream("fonts/runescape.ttf").readAllBytes();
+        FreeType.Face face = lib.newMemoryFace(stream, stream.length, 0);
         face.setPixelSizes(0, 16);
         GL43C.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         for(char ch: CalcHelper.fontWidths.keySet()) {
@@ -237,7 +243,7 @@ public class HudHelper {
         addHitsplatTexture(HitsplatID.BURN,"other_poise_hitsplat.png");
     }
 
-    void addHitsplatTexture(int id, String resource){
+    void addHitsplatTexture(int id, String resource) throws IOException{
         int width;
         int height;
         ByteBuffer buffer;
@@ -246,12 +252,33 @@ public class HudHelper {
             IntBuffer h = stack.mallocInt(1);
             IntBuffer channels = stack.mallocInt(1);
             //URL url = HudHelper.class.getResource("resources/com/extendedhitsplats/hitplats/osrs/" + resource);
-            File file = new File("resources/com/extendedhitsplats/hitsplats/osrs/" + resource);
-            String filePath = file.getAbsolutePath();
-            buffer = STBImage.stbi_load(filePath, w, h, channels, 4);
+            //File file = new File("resources/com/extendedhitsplats/hitsplats/osrs/" + resource);
+            //String filePath = file.getAbsolutePath();
+            BufferedImage im = ImageIO.read(SceneUploader.class.getResourceAsStream("osrs/" + resource));
+            AffineTransform transform = AffineTransform.getScaleInstance(1f, -1f);
+            transform.translate(0, -im.getHeight());
+            AffineTransformOp op = new AffineTransformOp(transform, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+            im = op.filter(im,null);
+            int imW = im.getWidth();
+            int imH = im.getHeight();
+            int[] pixels = new int[imW*imH];
+            im.getRGB(0,0,imW,imH,pixels,0,imW);
+            buffer = stack.malloc(imW*imH*4);
+            for(int y = 0; y < imH; y++){
+                for(int x = 0; x < imW; x++){
+                    int pixel = pixels[imW*y+x];
+                    buffer.put((byte)((pixel >> 16) & 0xFF));
+                    buffer.put((byte)((pixel >> 8) & 0xFF));
+                    buffer.put((byte)((pixel) & 0xFF));
+                    buffer.put((byte)((pixel >> 24) & 0xFF));
+                }
+            }
+            buffer.flip();
+
+            //buffer = STBImage.stbi_load_from_memory(buff, w, h, channels, 4);
             if(buffer != null) {
-                width = w.get();
-                height = h.get();
+                width = imW;//w.get();
+                height = imH;//h.get();
                 int texture = GL43C.glGenTextures();
                 GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, texture);
                 GL43C.glTexImage2D(GL43C.GL_TEXTURE_2D,
@@ -267,7 +294,7 @@ public class HudHelper {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                STBImage.stbi_image_free(buffer);
+                //STBImage.stbi_image_free(buffer);
                 hitsplatTex.put(id, texture);
             }
         }
