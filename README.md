@@ -1,5 +1,7 @@
 # RSVR
-VR plugin for runelite. Currently only works with oculus in classic layout mode.
+VR plugin for runelite. Currently only works with oculus in classic layout mode. 
+
+Uses runescape's projection (will look flatter zoomed in and more 3D zoomed out).
 
 ## Controls:
 This plugin uses a robot to click/move the mouse and requires the runelite window to have focus.
