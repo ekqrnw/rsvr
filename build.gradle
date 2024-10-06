@@ -49,8 +49,8 @@ dependencies {
 	testImplementation 'org.lwjgl:lwjgl-stb:3.3.2:natives-windows'
 }
 
-group = 'com.example'
-version = '1.0-SNAPSHOT'
+group = 'com.rsvr'
+version = '0.1.0'
 
 tasks.withType(JavaCompile) {
 	options.encoding = 'UTF-8'
