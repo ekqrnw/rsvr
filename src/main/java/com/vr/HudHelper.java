@@ -77,6 +77,8 @@ public class HudHelper {
     private Map<java.lang.Character, Character> characters;
 
     private Map<Integer, Integer> hitsplatTex;
+    private Map<Integer, Integer> skullTex;
+    private Map<HeadIcon, Integer> overheadTex;
 
     private int uniHudProjection;
     private int uniHudProjection2;
@@ -124,6 +126,8 @@ public class HudHelper {
 
         characters = new HashMap<>();
         hitsplatTex = new HashMap<>();
+        skullTex = new HashMap<>();
+        overheadTex = new HashMap<>();
 
         uniHudProjection = GL43C.glGetUniformLocation(glHudProgram, "projection");
         uniHudProjection2 = GL43C.glGetUniformLocation(glHudProgram, "projection2");
@@ -241,6 +245,153 @@ public class HudHelper {
         addHitsplatTexture(HitsplatID.SANITY_RESTORE,"other_poise_hitsplat.png");
         addHitsplatTexture(HitsplatID.DOOM,"other_poise_hitsplat.png");
         addHitsplatTexture(HitsplatID.BURN,"other_poise_hitsplat.png");
+
+        addOverheadTexture(HeadIcon.DEFLECT_MAGE,"Dampen_Magic_overhead.png");
+        addOverheadTexture(HeadIcon.DEFLECT_MELEE,"Dampen_Melee_overhead.png");
+        addOverheadTexture(HeadIcon.DEFLECT_RANGE,"Dampen_Ranged_overhead.png");
+        addOverheadTexture(HeadIcon.MAGE_MELEE,"Protect_from_Magic_and_Melee_overhead.png");
+        addOverheadTexture(HeadIcon.MAGIC,"Protect_from_Magic_overhead.png");
+        addOverheadTexture(HeadIcon.MELEE,"Protect_from_Melee_overhead.png");
+        addOverheadTexture(HeadIcon.RANGE_MAGE,"Protect_from_Magic_and_Missiles_overhead.png");
+        addOverheadTexture(HeadIcon.RANGE_MAGE_MELEE,"Protect_from_all.png");
+        addOverheadTexture(HeadIcon.RANGE_MELEE,"Protect_from_Missiles_and_Melee_overhead.png");
+        addOverheadTexture(HeadIcon.RANGED,"Protect_from_Missiles_overhead.png");
+        addOverheadTexture(HeadIcon.REDEMPTION,"Redemption_overhead.png");
+        addOverheadTexture(HeadIcon.RETRIBUTION,"Retribution_overhead.png");
+        addOverheadTexture(HeadIcon.SMITE,"Smite_overhead.png");
+        addOverheadTexture(HeadIcon.SOUL_SPLIT,"Soul_Split_overhead.png");
+        addOverheadTexture(HeadIcon.WRATH,"Wrath_overhead.png");
+
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE,"Skull_(Forinthry_surge)_icon.png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_DEADMAN,"Skull_(Deadman_Mode_Forinthry_Surge)_icon.png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_KEYS_FIVE,"Skull_(Forinthry_Surge_Loot_key)_icon_(5).png");
+        addSkullTexture(SkullIcon.SKULL,"Skull.png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_KEYS_FOUR,"Skull_(Forinthry_Surge_Loot_key)_icon_(4).png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_KEYS_ONE,"Skull_(Forinthry_Surge_Loot_key)_icon_(1).png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_KEYS_THREE,"Skull_(Forinthry_Surge_Loot_key)_icon_(3).png");
+        addSkullTexture(SkullIcon.FORINTHRY_SURGE_KEYS_TWO,"Skull_(Forinthry_Surge_Loot_key)_icon_(2).png");
+        addSkullTexture(SkullIcon.LOOT_KEYS_FIVE,"Skull_(Loot_key)_icon_(5).png");
+        addSkullTexture(SkullIcon.LOOT_KEYS_FOUR,"Skull_(Loot_key)_icon_(4).png");
+        addSkullTexture(SkullIcon.LOOT_KEYS_ONE,"Skull_(Loot_key)_icon_(1).png");
+        addSkullTexture(SkullIcon.LOOT_KEYS_THREE,"Skull_(Loot_key)_icon_(3).png");
+        addSkullTexture(SkullIcon.LOOT_KEYS_TWO,"Skull_(Loot_key)_icon_(2).png");
+        addSkullTexture(SkullIcon.SKULL_DEADMAN,"Skull_(Deadman_Mode)_icon.png");
+        addSkullTexture(SkullIcon.SKULL_FIGHT_PIT,"Skull_(TzHaar_Fight_Pit)_icon.png");
+        addSkullTexture(SkullIcon.SKULL_HIGH_RISK,"Skull_(High_Risk_PvP_world)_icon.png");
+    }
+
+    void addOverheadTexture(HeadIcon id, String resource) throws IOException{
+        int width;
+        int height;
+        ByteBuffer buffer;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer w = stack.mallocInt(1);
+            IntBuffer h = stack.mallocInt(1);
+            IntBuffer channels = stack.mallocInt(1);
+            //URL url = HudHelper.class.getResource("resources/com/extendedhitsplats/hitplats/osrs/" + resource);
+            //File file = new File("resources/com/extendedhitsplats/hitsplats/osrs/" + resource);
+            //String filePath = file.getAbsolutePath();
+            BufferedImage im = ImageIO.read(SceneUploader.class.getResourceAsStream("overhead_prayer/" + resource));
+            AffineTransform transform = AffineTransform.getScaleInstance(1f, -1f);
+            transform.translate(0, -im.getHeight());
+            AffineTransformOp op = new AffineTransformOp(transform, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+            im = op.filter(im,null);
+            int imW = im.getWidth();
+            int imH = im.getHeight();
+            int[] pixels = new int[imW*imH];
+            im.getRGB(0,0,imW,imH,pixels,0,imW);
+            buffer = stack.malloc(imW*imH*4);
+            for(int y = 0; y < imH; y++){
+                for(int x = 0; x < imW; x++){
+                    int pixel = pixels[imW*y+x];
+                    buffer.put((byte)((pixel >> 16) & 0xFF));
+                    buffer.put((byte)((pixel >> 8) & 0xFF));
+                    buffer.put((byte)((pixel) & 0xFF));
+                    buffer.put((byte)((pixel >> 24) & 0xFF));
+                }
+            }
+            buffer.flip();
+
+            //buffer = STBImage.stbi_load_from_memory(buff, w, h, channels, 4);
+            if(buffer != null) {
+                width = imW;//w.get();
+                height = imH;//h.get();
+                int texture = GL43C.glGenTextures();
+                GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, texture);
+                GL43C.glTexImage2D(GL43C.GL_TEXTURE_2D,
+                        0,
+                        GL43C.GL_RGBA,
+                        width,
+                        height,
+                        0, GL43C.GL_RGBA,
+                        GL43C.GL_UNSIGNED_BYTE,
+                        buffer
+                );
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                //STBImage.stbi_image_free(buffer);
+                overheadTex.put(id, texture);
+            }
+        }
+    }
+
+    void addSkullTexture(int id, String resource) throws IOException{
+        int width;
+        int height;
+        ByteBuffer buffer;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer w = stack.mallocInt(1);
+            IntBuffer h = stack.mallocInt(1);
+            IntBuffer channels = stack.mallocInt(1);
+            //URL url = HudHelper.class.getResource("resources/com/extendedhitsplats/hitplats/osrs/" + resource);
+            //File file = new File("resources/com/extendedhitsplats/hitsplats/osrs/" + resource);
+            //String filePath = file.getAbsolutePath();
+            BufferedImage im = ImageIO.read(SceneUploader.class.getResourceAsStream("overhead_skull/" + resource));
+            AffineTransform transform = AffineTransform.getScaleInstance(1f, -1f);
+            transform.translate(0, -im.getHeight());
+            AffineTransformOp op = new AffineTransformOp(transform, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+            im = op.filter(im,null);
+            int imW = im.getWidth();
+            int imH = im.getHeight();
+            int[] pixels = new int[imW*imH];
+            im.getRGB(0,0,imW,imH,pixels,0,imW);
+            buffer = stack.malloc(imW*imH*4);
+            for(int y = 0; y < imH; y++){
+                for(int x = 0; x < imW; x++){
+                    int pixel = pixels[imW*y+x];
+                    buffer.put((byte)((pixel >> 16) & 0xFF));
+                    buffer.put((byte)((pixel >> 8) & 0xFF));
+                    buffer.put((byte)((pixel) & 0xFF));
+                    buffer.put((byte)((pixel >> 24) & 0xFF));
+                }
+            }
+            buffer.flip();
+
+            //buffer = STBImage.stbi_load_from_memory(buff, w, h, channels, 4);
+            if(buffer != null) {
+                width = imW;//w.get();
+                height = imH;//h.get();
+                int texture = GL43C.glGenTextures();
+                GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, texture);
+                GL43C.glTexImage2D(GL43C.GL_TEXTURE_2D,
+                        0,
+                        GL43C.GL_RGBA,
+                        width,
+                        height,
+                        0, GL43C.GL_RGBA,
+                        GL43C.GL_UNSIGNED_BYTE,
+                        buffer
+                );
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                //STBImage.stbi_image_free(buffer);
+                skullTex.put(id, texture);
+            }
+        }
     }
 
     void addHitsplatTexture(int id, String resource) throws IOException{
@@ -420,13 +571,13 @@ public class HudHelper {
                 //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
                 // update VBO for each character
                 float[] vertices = new float[]{
-                        xpos-w,    ypos + h,   0.044f+0.088f*tiles, 0.0f, 0.0f ,
-                        xpos-w,     ypos,      0.044f+0.088f*tiles,0.0f, 1.0f ,
-                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 1.0f ,
+                        xpos-w,    ypos + h,   0.044f+0.088f*tiles, 0.0f, 1.0f ,
+                        xpos-w,     ypos,      0.044f+0.088f*tiles,0.0f, 0.0f ,
+                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 0.0f ,
 
-                        xpos-w,     ypos + h,  0.044f+0.088f*tiles,0.0f, 0.0f ,
-                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 1.0f ,
-                        xpos+w, ypos + h,  0.044f+0.088f*tiles,1.0f, 0.0f };
+                        xpos-w,     ypos + h,  0.044f+0.088f*tiles,0.0f, 1.0f ,
+                        xpos+w, ypos,      0.044f+0.088f*tiles,1.0f, 0.0f ,
+                        xpos+w, ypos + h,  0.044f+0.088f*tiles,1.0f, 1.0f };
                 // render glyph texture over quad
                 glBindTexture(GL_TEXTURE_2D, hitsplatTex.get(hit.getHitsplatType()));
                 // update content of VBO memory
@@ -488,13 +639,13 @@ public class HudHelper {
                     //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
                     // update VBO for each character
                     float[] vertices = new float[]
-                            {xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
-                                    xpos, ypos, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
-                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
+                            {xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
+                                    xpos, ypos, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f,
 
-                                    xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
-                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
-                                    xpos + w, ypos + h, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f};
+                                    xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f,
+                                    xpos + w, ypos + h, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f};
                     // render glyph texture over quad
                     glBindTexture(GL_TEXTURE_2D, ch.id);
                     // update content of VBO memory
@@ -532,7 +683,7 @@ public class HudHelper {
     }
 
     void swap(Client client){
-        Set<Actor> remove = new HashSet<>();
+        /*Set<Actor> remove = new HashSet<>();
         for(Actor actor: actors.keySet()){
             if(actor.getModel() == null){
                 remove.add(actor);
@@ -541,7 +692,8 @@ public class HudHelper {
         for(Actor actor: remove){
             actors.remove(actor);
             //interpolator.actors.remove(actor);
-        }
+        }*/
+        actors.clear();
     }
 
     public void addHealthbarTimeout(Actor actor, int timeout){
@@ -567,7 +719,11 @@ public class HudHelper {
     }
 
     void drawAll(Actor actor, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
-        if((actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) && !healthbars.containsKey(actor)) {}
+        if(
+                (actor.getOverheadCycle() <= 0 || actor.getOverheadText() == null) &&
+                        !healthbars.containsKey(actor) &&
+                        (!(actor instanceof Player) || ((((Player) actor).getOverheadIcon() == null) && (((Player) actor).getSkullIcon() == SkullIcon.NONE)))
+        ) {}
         else {
             Model model = actor.getModel();
             if (model.getUnskewedModel() != null) {
@@ -596,6 +752,8 @@ public class HudHelper {
 
             drawOverheadText(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
             drawHealthbar(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
+            drawSkull(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
+            drawOverhead(actor, xoffset, yoffset, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
             drawHitsplats(actor, xoffset, yoffset/2, zoffset, viewMatrix, projectionMatrix, projectionMatrix2);
         }
     }
@@ -668,6 +826,161 @@ public class HudHelper {
             GL43C.glUseProgram(0);
             GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
             GL43C.glDisable(GL43C.GL_BLEND);
+        }
+    }
+
+    void drawOverhead(Actor actor, float xoffset, float yoffset, float zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+        Act act = actors.get(actor);
+        int x = act.x;
+        int y = act.y;
+        int z = act.z;
+        int orientation = act.orientation;
+        if(!(actor instanceof Player)) return;
+        HeadIcon overhead = ((Player) actor).getOverheadIcon();
+
+        //System.out.println("ACTOR: "+actor);
+        if(overhead == null){}
+        else {
+            //float tiles = (((actor.getWorldArea().getWidth()-1)/2)+((actor.getWorldArea().getHeight()-1)/2))/2.0f;
+            GL43C.glEnable(GL43C.GL_BLEND);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+
+            //System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
+            //System.out.println(projectionMatrix2);
+            //Matrix4f m = new Matrix4f().mul(projectionMatrix2).mul();//.mul(projectionMatrix2);
+            //System.out.println("CRIER: "+m.get(0,0)+" "+m.get(0,1)+" "+m.get(0,2));
+            ////Matrix4f mat = new Matrix4f().mul(projectionMatrix2).mul(new Matrix4f(xoffset,yoffset,zoffset,1,0,0,0,0,0,0,0,0,0,0,0,0));//;//m.get(0,0), m.get(0,1), m.get(0,2));
+            ////Matrix4f trans = new Matrix4f().translation(mat.get(0,0)/mat.get(0,3),mat.get(0,1)/mat.get(0,3),mat.get(0,2)/mat.get(0,3));
+            //System.out.println(new Matrix4f(xoffset,0,0,0,yoffset,0,0,0,zoffset,0,0,0,1,0,0,0));
+            ////System.out.println(mat);
+            ////System.out.println(trans);
+
+            // Use the texture bound in the first pass
+            GL43C.glUseProgram(glHud3Program);
+            GL43C.glUniformMatrix4fv(uniHud3View, false, viewMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud3Projection, false, projectionMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud3Projection2, false, projectionMatrix2);
+            float[] real = new float[]{xoffset, yoffset, zoffset, 1.0f};
+            rotateAndTranslate(real,x,y,z,orientation);
+            GL43C.glUniform4fv(uniHud3Loc, real);
+
+            GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+            // Texture on UI
+            GL43C.glBindVertexArray(vaoHud3Handle);
+
+            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +0.008f;
+            if(((Player) actor).getSkullIcon() != SkullIcon.NONE) off += 0.033f;
+
+            float xpos = 0.0f;
+            float ypos = off;
+
+            float w = 0.016f;
+            float h = 0.032f;
+            //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
+            // update VBO for each character
+            float[] vertices = new float[]{
+                    xpos-w,    ypos + h,   0.0f, 0.0f, 1.0f ,
+                    xpos-w,     ypos,      0.0f,0.0f, 0.0f ,
+                    xpos+w, ypos,      0.0f,1.0f, 0.0f ,
+
+                    xpos-w,     ypos + h,  0.0f,0.0f, 1.0f ,
+                    xpos+w, ypos,      0.0f,1.0f, 0.0f ,
+                    xpos+w, ypos + h,  0.0f,1.0f, 1.0f };
+            // render glyph texture over quad
+            glBindTexture(GL_TEXTURE_2D, overheadTex.get(overhead));
+            // update content of VBO memory
+            glBindBuffer(GL_ARRAY_BUFFER, vboHud3Handle);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            // render quad
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+
+            // Reset
+            GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+            GL43C.glBindVertexArray(0);
+            GL43C.glUseProgram(0);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+            GL43C.glDisable(GL43C.GL_BLEND);
+
+
+        }
+    }
+
+    void drawSkull(Actor actor, float xoffset, float yoffset, float zoffset, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2){
+        Act act = actors.get(actor);
+        int x = act.x;
+        int y = act.y;
+        int z = act.z;
+        int orientation = act.orientation;
+        if(!(actor instanceof Player)) return;
+        int skull = ((Player) actor).getSkullIcon();
+
+        //System.out.println("ACTOR: "+actor);
+        if(skull == SkullIcon.NONE){}
+        else {
+            //float tiles = (((actor.getWorldArea().getWidth()-1)/2)+((actor.getWorldArea().getHeight()-1)/2))/2.0f;
+            GL43C.glEnable(GL43C.GL_BLEND);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+
+            //System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
+            //System.out.println(projectionMatrix2);
+            //Matrix4f m = new Matrix4f().mul(projectionMatrix2).mul();//.mul(projectionMatrix2);
+            //System.out.println("CRIER: "+m.get(0,0)+" "+m.get(0,1)+" "+m.get(0,2));
+            ////Matrix4f mat = new Matrix4f().mul(projectionMatrix2).mul(new Matrix4f(xoffset,yoffset,zoffset,1,0,0,0,0,0,0,0,0,0,0,0,0));//;//m.get(0,0), m.get(0,1), m.get(0,2));
+            ////Matrix4f trans = new Matrix4f().translation(mat.get(0,0)/mat.get(0,3),mat.get(0,1)/mat.get(0,3),mat.get(0,2)/mat.get(0,3));
+            //System.out.println(new Matrix4f(xoffset,0,0,0,yoffset,0,0,0,zoffset,0,0,0,1,0,0,0));
+            ////System.out.println(mat);
+            ////System.out.println(trans);
+
+            // Use the texture bound in the first pass
+            GL43C.glUseProgram(glHud3Program);
+            GL43C.glUniformMatrix4fv(uniHud3View, false, viewMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud3Projection, false, projectionMatrix.get(mvpMatrix));
+            GL43C.glUniformMatrix4fv(uniHud3Projection2, false, projectionMatrix2);
+            float[] real = new float[]{xoffset, yoffset, zoffset, 1.0f};
+            rotateAndTranslate(real,x,y,z,orientation);
+            GL43C.glUniform4fv(uniHud3Loc, real);
+
+            GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+            // Texture on UI
+            GL43C.glBindVertexArray(vaoHud3Handle);
+
+            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +0.008f;
+
+            float xpos = 0.0f;
+            float ypos = off;
+
+            float w = 0.016f;
+            float h = 0.032f;
+            //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
+            // update VBO for each character
+            float[] vertices = new float[]{
+                    xpos-w,    ypos + h,   0.0f, 0.0f, 1.0f ,
+                    xpos-w,     ypos,      0.0f,0.0f, 0.0f ,
+                    xpos+w, ypos,      0.0f,1.0f, 0.0f ,
+
+                    xpos-w,     ypos + h,  0.0f,0.0f, 1.0f ,
+                    xpos+w, ypos,      0.0f,1.0f, 0.0f ,
+                    xpos+w, ypos + h,  0.0f,1.0f, 1.0f };
+            // render glyph texture over quad
+            glBindTexture(GL_TEXTURE_2D, skullTex.get(skull));
+            // update content of VBO memory
+            glBindBuffer(GL_ARRAY_BUFFER, vboHud3Handle);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            // render quad
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+
+            // Reset
+            GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+            GL43C.glBindVertexArray(0);
+            GL43C.glUseProgram(0);
+            GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+            GL43C.glDisable(GL43C.GL_BLEND);
+
+
         }
     }
 
