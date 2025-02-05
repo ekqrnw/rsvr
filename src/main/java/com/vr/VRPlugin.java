@@ -3466,6 +3466,15 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			// Avoid drawing the last frame's buffer during LOADING after LOGIN_SCREEN
 			targetBufferOffset = 0;
 		}
+		if (gameStateChanged.getGameState() == GameState.STARTING)
+		{
+			if (textureArrayId != -1)
+			{
+				textureManager.freeTextureArray(textureArrayId);
+			}
+			textureArrayId = -1;
+			lastAnisotropicFilteringLevel = -1;
+		}
 	}
 
 	@Subscribe
