@@ -639,13 +639,13 @@ public class HudHelper {
                     //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
                     // update VBO for each character
                     float[] vertices = new float[]
-                            {xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
-                                    xpos, ypos, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
-                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f,
+                            {xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
+                                    xpos, ypos, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
 
-                                    xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 1.0f,
-                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f,
-                                    xpos + w, ypos + h, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f};
+                                    xpos, ypos + h, 0.044f+0.088f*tiles+0.001f, 0.0f, 0.0f,
+                                    xpos + w, ypos, 0.044f+0.088f*tiles+0.001f, 1.0f, 1.0f,
+                                    xpos + w, ypos + h, 0.044f+0.088f*tiles+0.001f, 1.0f, 0.0f};
                     // render glyph texture over quad
                     glBindTexture(GL_TEXTURE_2D, ch.id);
                     // update content of VBO memory
@@ -868,7 +868,7 @@ public class HudHelper {
             // Texture on UI
             GL43C.glBindVertexArray(vaoHud3Handle);
 
-            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +0.008f;
+            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +(healthbars.containsKey(actor)?0.008f:0.00f);
             if(((Player) actor).getSkullIcon() != SkullIcon.NONE) off += 0.033f;
 
             float xpos = 0.0f;
@@ -946,7 +946,7 @@ public class HudHelper {
             // Texture on UI
             GL43C.glBindVertexArray(vaoHud3Handle);
 
-            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +0.008f;
+            float off = ((actor.getOverheadCycle() > 0)? 0.026f:0.00f) +(healthbars.containsKey(actor)?0.008f:0.00f);
 
             float xpos = 0.0f;
             float ypos = off;
