@@ -1595,6 +1595,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			.add(GL43C.GL_VERTEX_SHADER, "vertmenu.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fragui.glsl");
 
+	static final com.vr.Shader HINT_PROGRAM = new Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "verthint.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud.glsl");
+
 	static final com.vr.Shader HUD2_PROGRAM = new Shader()
 			.add(GL43C.GL_VERTEX_SHADER, "verthud2.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghud2.glsl");
@@ -1606,6 +1610,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
 		glMenuProgram = MENU_PROGRAM.compile(template);
+		hudHelper.glHintProgram = HINT_PROGRAM.compile(template);
 		hudHelper.glHud3Program = HUD3_PROGRAM.compile(template);
 		hudHelper.glHudProgram = HUD_PROGRAM.compile(template);
 		hudHelper.glHud2Program = HUD2_PROGRAM.compile(template);
@@ -2786,6 +2791,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			if(client.isMenuOpen() && !hovering){
 				glClear(GL_DEPTH_BUFFER_BIT);
 				drawMenu(overlayColor, client.getMenuWidth(), Math.min(lastCanvasHeight,client.getMenuHeight()), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
+			} else if(!client.isMenuOpen() && hintTarget != null) {
+				glClear(GL_DEPTH_BUFFER_BIT);
+				hudHelper.drawHint(overlayColor, viewMatrix, projectionMatrix, projectionMatrix2, hintTileX, hintTileY, hintAction, hintTarget, hintActor, hintIntersect);
 			}
 
 			/*Matrix4f matrix = new Matrix4f(
@@ -2871,6 +2879,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			final int menuHeight = Math.min(lastCanvasHeight,client.getMenuHeight());
 			final int menuWidth = client.getMenuWidth();
 			prepareMenuTexture(menuWidth, menuHeight);
+		} else {
+			generateHint();
 		}
 
 		// Setup anti-aliasing
@@ -3503,7 +3513,15 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	Integer menuTileY = null;
 	Actor menuActor = null;
 
+	Integer hintTileX = null;
+	Integer hintTileY = null;
+	Actor hintActor = null;
+	String hintAction = null;
+	String hintTarget = null;
+
 	Vector3f menuIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
+
+	Vector3f hintIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
 
 	public boolean isTargetingWorld(){
 		MenuEntry[] menuEntries = client.getMenuEntries();
@@ -3548,6 +3566,80 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				default:
 					return false;
 			}
+		}
+	}
+
+	public void generateHint()
+	{
+		MenuEntry[] menuEntries = client.getMenuEntries();
+		if (menuEntries.length == 0)
+		{
+			hintActor = null;
+			hintTileX = null;
+			hintTileY = null;
+			hintTarget = null;
+			hintAction = null;
+		} else {
+			MenuEntry entry = menuEntries[menuEntries.length - 1];
+			MenuAction menuAction = entry.getType();
+
+			switch (menuAction) {
+				case WIDGET_TARGET_ON_GAME_OBJECT:
+				case GAME_OBJECT_FIRST_OPTION:
+				case GAME_OBJECT_SECOND_OPTION:
+				case GAME_OBJECT_THIRD_OPTION:
+				case GAME_OBJECT_FOURTH_OPTION:
+				case GAME_OBJECT_FIFTH_OPTION: {
+					hintActor = null;
+					hintTileX = entry.getParam0();
+					hintTileY = entry.getParam1();
+					hintTarget = entry.getTarget();
+					hintAction = entry.getOption();
+					//System.out.println("GROUND:"+menuTileX+" "+menuTileY);
+					break;
+				}
+				case WIDGET_TARGET_ON_NPC:
+				case NPC_FIRST_OPTION:
+				case NPC_SECOND_OPTION:
+				case NPC_THIRD_OPTION:
+				case NPC_FOURTH_OPTION:
+				case NPC_FIFTH_OPTION: {
+					hintActor = entry.getActor();
+					hintTileX = hintActor.getLocalLocation().getSceneX();
+					hintTileY = hintActor.getLocalLocation().getSceneY();
+					hintTarget = entry.getTarget();
+					hintAction = entry.getOption();
+					//System.out.println("ACTOR:"+menuTileX+" "+menuTileY);
+					break;
+				}
+				case EXAMINE_NPC:
+				case PLAYER_FIRST_OPTION:
+				case PLAYER_SECOND_OPTION:
+				case PLAYER_THIRD_OPTION:
+				case PLAYER_FOURTH_OPTION:
+				case PLAYER_FIFTH_OPTION:
+				case PLAYER_SIXTH_OPTION:
+				case PLAYER_SEVENTH_OPTION:
+				case PLAYER_EIGHTH_OPTION:
+				case EXAMINE_ITEM_GROUND:
+				case GROUND_ITEM_FIRST_OPTION:
+				case GROUND_ITEM_SECOND_OPTION:
+				case GROUND_ITEM_THIRD_OPTION:
+				case GROUND_ITEM_FOURTH_OPTION:
+				case GROUND_ITEM_FIFTH_OPTION:
+				case WALK:
+				default:
+					hintActor = null;
+					hintTileX = null;
+					hintTileY = null;
+					hintTarget = null;
+					hintAction = null;
+			}
+		}
+		if(rightPose != null) {
+			hintIntersect = CalcHelper.getPlayAreaIntersect(rightPose.position$(), rightPose.orientation());
+		} else {
+			hintIntersect = new Vector3f(0.0f, 0.0f, 0.0f);
 		}
 	}
 

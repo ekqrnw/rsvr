@@ -89,6 +89,15 @@ public class HudHelper {
 
     private int uniHudCol;
 
+    private int uniHintProjection;
+    private int uniHintProjection2;
+
+    private int uniHintView;
+
+    private int uniHintLoc;
+
+    private int uniHintCol;
+
     private int uniHud3Projection;
     private int uniHud3Projection2;
 
@@ -103,6 +112,10 @@ public class HudHelper {
     private int vboHudHandle;
     private int vaoHudHandle;
     static int glHudProgram;
+
+    private int vboHintHandle;
+    private int vaoHintHandle;
+    static int glHintProgram;
 
     private int uniHud2Projection;
     private int uniHud2Projection2;
@@ -135,6 +148,12 @@ public class HudHelper {
         uniHudLoc= GL43C.glGetUniformLocation(glHudProgram, "loc");
         uniHudCol= GL43C.glGetUniformLocation(glHudProgram, "col");
 
+        uniHintProjection = GL43C.glGetUniformLocation(glHintProgram, "projection");
+        uniHintProjection2 = GL43C.glGetUniformLocation(glHintProgram, "projection2");
+        uniHintView = GL43C.glGetUniformLocation(glHintProgram, "viewMatrix");
+        uniHintLoc= GL43C.glGetUniformLocation(glHintProgram, "loc");
+        uniHintCol= GL43C.glGetUniformLocation(glHintProgram, "col");
+
         uniHud3Projection = GL43C.glGetUniformLocation(glHud3Program, "projection");
         uniHud3Projection2 = GL43C.glGetUniformLocation(glHud3Program, "projection2");
         uniHud3View = GL43C.glGetUniformLocation(glHud3Program, "viewMatrix");
@@ -153,6 +172,21 @@ public class HudHelper {
         GL43C.glEnableVertexAttribArray(1);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
+
+        vaoHintHandle = GL43C.glGenVertexArrays();
+        vboHintHandle = GL43C.glGenBuffers();
+        glBindVertexArray(vaoHintHandle);
+        glBindBuffer(GL_ARRAY_BUFFER, vboHintHandle);
+        GL43C.glBufferData(GL_ARRAY_BUFFER, GL43C.GL_FLOAT * 6 * 5, GL_DYNAMIC_DRAW);
+        GL43C.glVertexAttribPointer(0, 3, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 0);
+        GL43C.glEnableVertexAttribArray(0);
+
+        // texture coord attribute
+        GL43C.glVertexAttribPointer(1, 2, GL43C.GL_FLOAT, false, 5 * Float.BYTES, 3 * Float.BYTES);
+        GL43C.glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
         vaoHud2Handle = GL43C.glGenVertexArrays();
         vboHud2Handle = GL43C.glGenBuffers();
         glBindVertexArray(vaoHud2Handle);
@@ -1022,7 +1056,7 @@ public class HudHelper {
 
             float x2 = 0;
             float y2 = 0;
-            float scale = 0.002f;
+            float scale = 0.0015f;
             for(char cha: overhead.toCharArray()){
                 Character ch = characters.get(cha);
                 if(ch == null) continue;
@@ -1076,5 +1110,144 @@ public class HudHelper {
         for(Actor actor: actors.keySet()){
             drawAll(actor, viewMatrix, projectionMatrix, projectionMatrix2);
         }
+    }
+
+    void drawHint(final int overlayColor, Matrix4f viewMatrix, Matrix4f projectionMatrix, float[] projectionMatrix2,
+                  Integer hintTileX, Integer hintTileY, String action, String target, Actor actor, Vector3f hintIntersect)
+    {
+
+/////////////////////////////////////////////////////////////////////////////////
+        GL43C.glEnable(GL43C.GL_BLEND);
+        GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+
+        //System.out.println("CRIER: "+xoffset+" "+yoffset+" "+zoffset);
+        //System.out.println(projectionMatrix2);
+        //Matrix4f m = new Matrix4f().mul(projectionMatrix2).mul();//.mul(projectionMatrix2);
+        //System.out.println("CRIER: "+m.get(0,0)+" "+m.get(0,1)+" "+m.get(0,2));
+        ////Matrix4f mat = new Matrix4f().mul(projectionMatrix2).mul(new Matrix4f(xoffset,yoffset,zoffset,1,0,0,0,0,0,0,0,0,0,0,0,0));//;//m.get(0,0), m.get(0,1), m.get(0,2));
+        ////Matrix4f trans = new Matrix4f().translation(mat.get(0,0)/mat.get(0,3),mat.get(0,1)/mat.get(0,3),mat.get(0,2)/mat.get(0,3));
+        //System.out.println(new Matrix4f(xoffset,0,0,0,yoffset,0,0,0,zoffset,0,0,0,1,0,0,0));
+        ////System.out.println(mat);
+        ////System.out.println(trans);
+
+        // Use the texture bound in the first pass
+        GL43C.glUseProgram(glHintProgram);
+        GL43C.glUniformMatrix4fv(uniHintView, false, viewMatrix.get(mvpMatrix));
+        GL43C.glUniformMatrix4fv(uniHintProjection, false, projectionMatrix.get(mvpMatrix));
+
+        float[] real;
+        if(hintTileX!=null && hintTileY!=null) {
+            real = new float[]{hintTileX << Perspective.LOCAL_COORD_BITS, 0, hintTileY << Perspective.LOCAL_COORD_BITS, 1.0f};
+            GL43C.glUniformMatrix4fv(uniHintProjection2, false, projectionMatrix2);
+        }
+        else {
+            real = new float[]{0, 0, -1.0f, 1.0f};
+            GL43C.glUniformMatrix4fv(uniHintProjection2, false, new float[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1});
+        }
+        GL43C.glUniform4fv(uniHintLoc, real);
+
+        GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+        // Texture on UI
+        GL43C.glBindVertexArray(vaoHintHandle);
+
+        float y2 = hintIntersect.y/1.0f;
+        float zpos = 0.0f;
+        float x2 = hintIntersect.x/1.0f;
+        float tiles = actor==null?0:((((actor.getWorldArea().getWidth()-1)/2)+
+                ((actor.getWorldArea().getHeight()-1)/2))/2.0f);
+        float scale = 0.0015f;
+
+        /*for(char cha: overhead.toCharArray()){
+            Character ch = characters.get(cha);
+            if(ch == null) continue;
+            x2 += ch.bearing.x * scale + ch.size.x * scale;
+        }
+        x2 /= -2.0f;*/
+
+        GL43C.glUniform3fv(uniHintCol, new float[]{1.0f,1.0f,1.0f});
+        String[] strs = (action+" "+target).split("<col=");
+
+        float maxH = 0.0f;
+
+        for(int i = 0; i < strs.length; i++) {
+            String str = strs[i];
+            if(i > 0){
+                int index = str.indexOf('>');
+                String color = str.substring(0,index);
+                while(color.length() < 6){color = "0"+color;}
+                float r = Integer.parseInt(color.substring(0,2),16)/255.0f;
+                float g = Integer.parseInt(color.substring(2,4),16)/255.0f;
+                float b = Integer.parseInt(color.substring(4),16)/255.0f;
+                GL43C.glUniform3fv(uniHintCol, new float[]{r,g,b});
+                str = str.substring(index+1);
+            }
+            for (char cha : str.toCharArray()) {
+                Character ch = characters.get(cha);
+                if (ch == null) continue;
+
+                float xpos = x2 + ch.bearing.x * scale;
+                float ypos = y2 - (ch.size.y - ch.bearing.y) * scale;
+
+                float w = ch.size.x * scale;
+                float h = ch.size.y * scale;
+                if(h > maxH) maxH = h;
+
+                //System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
+                // update VBO for each character
+                float[] vertices = new float[]
+                        {xpos, ypos + h, zpos + 0.045f + 0.088f * tiles, 0.0f, 0.0f,
+                                xpos, ypos, zpos + 0.045f + 0.088f * tiles, 0.0f, 1.0f,
+                                xpos + w, ypos, zpos + 0.045f + 0.088f * tiles, 1.0f, 1.0f,
+
+                                xpos, ypos + h, zpos + 0.045f + 0.088f * tiles, 0.0f, 0.0f,
+                                xpos + w, ypos, zpos + 0.045f + 0.088f * tiles, 1.0f, 1.0f,
+                                xpos + w, ypos + h, zpos + 0.045f + 0.088f * tiles, 1.0f, 0.0f};
+                // render glyph texture over quad
+                glBindTexture(GL_TEXTURE_2D, ch.id);
+                // update content of VBO memory
+                glBindBuffer(GL_ARRAY_BUFFER, vboHintHandle);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                // render quad
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+                x2 += (ch.advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+            }
+        }
+
+        /*GL43C.glUseProgram(glHud2Program);
+        GL43C.glUniformMatrix4fv(uniHud2View, false, viewMatrix.get(mvpMatrix));
+        GL43C.glUniformMatrix4fv(uniHud2Projection, false, projectionMatrix.get(mvpMatrix));
+        GL43C.glUniformMatrix4fv(uniHud2Projection2, false, projectionMatrix2);
+
+        GL43C.glUniform4fv(uniHud2Loc, real);
+
+        //GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+        // Texture on UI
+        GL43C.glBindVertexArray(vaoHud2Handle);
+
+        float[] vertices = new float[]{
+                hintIntersect.x/1.0f-0.01f, hintIntersect.y/1.0f+maxH+0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+                hintIntersect.x/1.0f-0.01f, hintIntersect.y/1.0f-0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+                x2+0.01f, hintIntersect.y/1.0f-0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+
+                x2+0.01f, hintIntersect.y/1.0f-0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+                x2+0.01f, hintIntersect.y/1.0f+maxH+0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+                hintIntersect.x/1.0f-0.01f, hintIntersect.y/1.0f+maxH+0.01f, zpos + 0.044f + 0.088f * tiles, 0.6f, 0.6f, 0.6f,
+        };
+        // update content of VBO memory
+        glBindBuffer(GL_ARRAY_BUFFER, vboHud2Handle);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        // render quad
+        glDrawArrays(GL_TRIANGLES, 0, 12);
+        // now advance cursors for next glyph (note that advance is number of 1/64 pixels)*/
+
+        // Reset
+        GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
+        GL43C.glBindVertexArray(0);
+        GL43C.glUseProgram(0);
+        GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA, GL43C.GL_ONE_MINUS_SRC_ALPHA);
+        GL43C.glDisable(GL43C.GL_BLEND);
     }
 }
