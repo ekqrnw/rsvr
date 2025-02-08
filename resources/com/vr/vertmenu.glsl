@@ -51,7 +51,7 @@ out XBRTable xbrTable;
 void main() {
   vec4 loc2 = projection2 * loc;
   loc2.y = 0.0;
-  gl_Position = projection * viewMatrix * vec4((aPos.xy*loc2.w),loc2.z, loc2.w);
+  gl_Position = projection * viewMatrix * vec4((aPos.xyz*loc2.w)+vec3(0.0,0.0,loc2.z), loc2.w);
   //gl_Position = vec4(aPos, 1.0);
   TexCoord = aTexCoord;
 
