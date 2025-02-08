@@ -3329,7 +3329,6 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glUseProgram(glMenuProgram);
 		GL43C.glUniformMatrix4fv(uniMenuView, false, viewMatrix.get(mvpMatrix));
 		GL43C.glUniformMatrix4fv(uniMenuProjection, false, projectionMatrix.get(mvpMatrix));
-		GL43C.glUniformMatrix4fv(uniMenuProjection2, false, projectionMatrix2);
 		GL43C.glUniformMatrix4fv(uniMenuMap, false, mapMatrix.get(mvpMatrix));
 		GL43C.glUniform1i(uniMenuTex, 0);
 		GL43C.glUniform1i(uniMenuTexSamplingMode, uiScalingMode.getMode());
@@ -3358,8 +3357,14 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		// Texture on UI
 
 		float[] real;
-		if(menuTileX!=null && menuTileY!=null) real = new float[]{menuTileX << Perspective.LOCAL_COORD_BITS, 0, menuTileY << Perspective.LOCAL_COORD_BITS, 1.0f};
-		else real = new float[]{0, 0, 0, 1.0f};
+		if(menuTileX!=null && menuTileY!=null) {
+			real = new float[]{menuTileX << Perspective.LOCAL_COORD_BITS, 0, menuTileY << Perspective.LOCAL_COORD_BITS, 1.0f};
+			GL43C.glUniformMatrix4fv(uniMenuProjection2, false, projectionMatrix2);
+		}
+		else {
+			real = new float[]{0, 0, -1.0f, 1.0f};
+			GL43C.glUniformMatrix4fv(uniMenuProjection2, false, new float[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1});
+		}
 		GL43C.glUniform4fv(uniMenuLoc, real);
 
 		//GL43C.glBindTexture(GL43C.GL_TEXTURE_2D, 0);
@@ -3368,12 +3373,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		float scale = 0.002f;
 
 		float ypos = menuIntersect.y/1.0f;
-		float zpos = (menuTileX!=null && menuTileY!=null)?0:1.0f;
-		float xpos = (menuTileX!=null && menuTileY!=null)?0:(menuIntersect.x/1.0f);
+		float zpos = 0.0f;
+		float xpos = menuIntersect.x/1.0f;
 
 		float w = client.getMenuWidth()*scale;
 		float h = client.getMenuHeight()*scale;
-		float tiles = menuActor==null?0:((((menuActor.getWorldArea().getWidth()-1)/2)+((menuActor.getWorldArea().getHeight()-1)/2))/2.0f);
+		float tiles = menuActor==null?0:((((menuActor.getWorldArea().getWidth()-1)/2)+
+						((menuActor.getWorldArea().getHeight()-1)/2))/2.0f);
 		//System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
 		// update VBO for each character
 		float[] vertices = new float[]{
@@ -3580,8 +3586,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				case WALK: {
 					menuActor = null;
 					Tile tile = client.getSelectedSceneTile();
-					menuTileX = tile.getLocalLocation().getSceneX();
-					menuTileY = tile.getLocalLocation().getSceneY();
+					if(tile != null) {
+						menuTileX = tile.getLocalLocation().getSceneX();
+						menuTileY = tile.getLocalLocation().getSceneY();
+					} else {
+						menuTileX = null;
+						menuTileY = null;
+					}
 					//System.out.println("GROUND:"+menuTileX+" "+menuTileY);
 					break;
 				}
