@@ -3192,6 +3192,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		exemptWidgets.add(69);
 		exemptWidgets.add(161);
 		exemptWidgets.add(164);
+		exemptWidgets.add(663);
 	}
 
 	HashSet<Integer> openWidgets = new HashSet<>();
