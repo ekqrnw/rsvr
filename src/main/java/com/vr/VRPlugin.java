@@ -2785,7 +2785,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 			if(client.isMenuOpen() && !hovering){
 				glClear(GL_DEPTH_BUFFER_BIT);
-				drawMenu(overlayColor, client.getMenuWidth(), client.getMenuHeight(), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
+				drawMenu(overlayColor, client.getMenuWidth(), Math.min(lastCanvasHeight,client.getMenuHeight()), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
 			}
 
 			/*Matrix4f matrix = new Matrix4f(
@@ -2868,7 +2868,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 		prepareInterfaceTexture(canvasWidth, canvasHeight);
 		if(client.isMenuOpen()) {
-			final int menuHeight = client.getMenuHeight();
+			final int menuHeight = Math.min(lastCanvasHeight,client.getMenuHeight());
 			final int menuWidth = client.getMenuWidth();
 			prepareMenuTexture(menuWidth, menuHeight);
 		}
@@ -3376,8 +3376,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		float zpos = 0.0f;
 		float xpos = menuIntersect.x/1.0f;
 
-		float w = client.getMenuWidth()*scale;
-		float h = client.getMenuHeight()*scale;
+		float w = menuHeight*scale;
+		float h = menuWidth*scale;
 		float tiles = menuActor==null?0:((((menuActor.getWorldArea().getWidth()-1)/2)+
 						((menuActor.getWorldArea().getHeight()-1)/2))/2.0f);
 		//System.out.println(cha+" "+xpos+" "+ypos+" "+w+" "+h);
