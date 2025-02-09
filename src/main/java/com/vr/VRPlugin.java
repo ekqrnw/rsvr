@@ -3609,10 +3609,17 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				case NPC_FOURTH_OPTION:
 				case NPC_FIFTH_OPTION: {
 					hintActor = entry.getActor();
-					hintTileX = hintActor.getLocalLocation().getSceneX();
-					hintTileY = hintActor.getLocalLocation().getSceneY();
-					hintTarget = entry.getTarget();
-					hintAction = entry.getOption();
+					if(hintActor != null) {
+						hintTileX = hintActor.getLocalLocation().getSceneX();
+						hintTileY = hintActor.getLocalLocation().getSceneY();
+						hintTarget = entry.getTarget();
+						hintAction = entry.getOption();
+					} else {
+						hintTileX = null;
+						hintTileY = null;
+						hintTarget = null;
+						hintAction = null;
+					}
 					//System.out.println("ACTOR:"+menuTileX+" "+menuTileY);
 					break;
 				}
