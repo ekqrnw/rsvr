@@ -2077,57 +2077,57 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 						if(((WallObject) tileObject).getRenderable1() != null) {
 							Renderable rend = (((WallObject) tileObject).getRenderable1() instanceof Model)?((WallObject) tileObject).getRenderable1():((WallObject) tileObject).getRenderable1().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 						}
 						if(((WallObject) tileObject).getRenderable2() != null) {
 							Renderable rend = (((WallObject) tileObject).getRenderable2() instanceof Model)?((WallObject) tileObject).getRenderable2():((WallObject) tileObject).getRenderable2().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 						}
 						if(((WallObject) tileObject).getRenderable1() != null) {
 							Renderable rend = (((WallObject) tileObject).getRenderable1() instanceof Model)?((WallObject) tileObject).getRenderable1():((WallObject) tileObject).getRenderable1().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 						if(((WallObject) tileObject).getRenderable2() != null) {
 							Renderable rend = (((WallObject) tileObject).getRenderable2() instanceof Model)?((WallObject) tileObject).getRenderable2():((WallObject) tileObject).getRenderable2().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 					} else if (tileObject instanceof GroundObject){
 						if(((GroundObject) tileObject).getRenderable() != null) {
 							Renderable rend = (((GroundObject) tileObject).getRenderable() instanceof Model)?((GroundObject) tileObject).getRenderable():((GroundObject) tileObject).getRenderable().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 						//System.out.println("2");
 					} else if (tileObject instanceof DecorativeObject){
 						if(((DecorativeObject) tileObject).getRenderable() != null) {
 							Renderable rend = (((DecorativeObject) tileObject).getRenderable() instanceof Model)?((DecorativeObject) tileObject).getRenderable():((DecorativeObject) tileObject).getRenderable().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 						}
 						if(((DecorativeObject) tileObject).getRenderable2() != null) {
 							Renderable rend = (((DecorativeObject) tileObject).getRenderable2() instanceof Model)?((DecorativeObject) tileObject).getRenderable2():((DecorativeObject) tileObject).getRenderable2().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 						}
 						if(((DecorativeObject) tileObject).getRenderable() != null) {
 							Renderable rend = (((DecorativeObject) tileObject).getRenderable() instanceof Model)?((DecorativeObject) tileObject).getRenderable():((DecorativeObject) tileObject).getRenderable().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 						if(((DecorativeObject) tileObject).getRenderable2() != null) {
 							Renderable rend = (((DecorativeObject) tileObject).getRenderable2() instanceof Model)?((DecorativeObject) tileObject).getRenderable2():((DecorativeObject) tileObject).getRenderable2().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 						//System.out.println("3");
 					} else if (tileObject instanceof GameObject){
 						if(((GameObject) tileObject).getRenderable() != null) {
 							Renderable rend = (((GameObject) tileObject).getRenderable() instanceof Model) ? ((GameObject) tileObject).getRenderable() : ((GameObject) tileObject).getRenderable().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, 0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 					}
 					//modelOutlineRenderer.drawOutline(tileObject, config.borderWidth(), OBJECT_HOVER_HIGHLIGHT_COLOR, config.outlineFeather());
@@ -2185,57 +2185,57 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				if(((WallObject) interactedObject).getRenderable1() != null) {
 					Renderable rend = (((WallObject) interactedObject).getRenderable1() instanceof Model)?((WallObject) interactedObject).getRenderable1():((WallObject) interactedObject).getRenderable1().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 				}
 				if(((WallObject) interactedObject).getRenderable2() != null) {
 					Renderable rend = (((WallObject) interactedObject).getRenderable2() instanceof Model)?((WallObject) interactedObject).getRenderable2():((WallObject) interactedObject).getRenderable2().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 				}
 				if(((WallObject) interactedObject).getRenderable1() != null) {
 					Renderable rend = (((WallObject) interactedObject).getRenderable1() instanceof Model)?((WallObject) interactedObject).getRenderable1():((WallObject) interactedObject).getRenderable1().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 				if(((WallObject) interactedObject).getRenderable2() != null) {
 					Renderable rend = (((WallObject) interactedObject).getRenderable2() instanceof Model)?((WallObject) interactedObject).getRenderable2():((WallObject) interactedObject).getRenderable2().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 			} else if (interactedObject instanceof GroundObject){
 				//System.out.println("7");
 				if(((GroundObject) interactedObject).getRenderable() != null) {
 					Renderable rend = (((GroundObject) interactedObject).getRenderable() instanceof Model) ? ((GroundObject) interactedObject).getRenderable() : ((GroundObject) interactedObject).getRenderable().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 			} else if (interactedObject instanceof DecorativeObject){
 				//System.out.println("8");
 				if(((DecorativeObject) interactedObject).getRenderable() != null) {
 					Renderable rend = (((DecorativeObject) interactedObject).getRenderable() instanceof Model)?((DecorativeObject) interactedObject).getRenderable():((DecorativeObject) interactedObject).getRenderable().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 				}
 				if(((DecorativeObject) interactedObject).getRenderable2() != null) {
 					Renderable rend = (((DecorativeObject) interactedObject).getRenderable2() instanceof Model)?((DecorativeObject) interactedObject).getRenderable2():((DecorativeObject) interactedObject).getRenderable2().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer);
 				}
 				if(((DecorativeObject) interactedObject).getRenderable() != null) {
 					Renderable rend = (((DecorativeObject) interactedObject).getRenderable() instanceof Model)?((DecorativeObject) interactedObject).getRenderable():((DecorativeObject) interactedObject).getRenderable().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 				if(((DecorativeObject) interactedObject).getRenderable2() != null) {
 					Renderable rend = (((DecorativeObject) interactedObject).getRenderable2() instanceof Model)?((DecorativeObject) interactedObject).getRenderable2():((DecorativeObject) interactedObject).getRenderable2().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 			} else if (interactedObject instanceof GameObject){
 				if(((GameObject) interactedObject).getRenderable() != null) {
 					Renderable rend = (((GameObject) interactedObject).getRenderable() instanceof Model) ? ((GameObject) interactedObject).getRenderable() : ((GameObject) interactedObject).getRenderable().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, 0, x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 			}
 		}

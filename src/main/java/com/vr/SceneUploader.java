@@ -556,11 +556,11 @@ class SceneUploader
 
 	public int pushModelOutline(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer, float scale, int color)
 	{
-		if (model.getUnskewedModel() != null)
+		/*if (model.getUnskewedModel() != null)
 		{
 			//System.out.println("SKEWED.");
 			model = model.getUnskewedModel();
-		}
+		}*/
 
 		final int triangleCount = Math.min(model.getFaceCount(), VRPlugin.MAX_TRIANGLE);
 
