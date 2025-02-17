@@ -3589,6 +3589,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 			switch (menuAction) {
 				case WIDGET_TARGET_ON_GAME_OBJECT:
+				case GROUND_ITEM_FIRST_OPTION:
+				case GROUND_ITEM_SECOND_OPTION:
+				case GROUND_ITEM_THIRD_OPTION:
+				case GROUND_ITEM_FOURTH_OPTION:
+				case GROUND_ITEM_FIFTH_OPTION:
 				case GAME_OBJECT_FIRST_OPTION:
 				case GAME_OBJECT_SECOND_OPTION:
 				case GAME_OBJECT_THIRD_OPTION:
@@ -3633,11 +3638,6 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				case PLAYER_SEVENTH_OPTION:
 				case PLAYER_EIGHTH_OPTION:
 				case EXAMINE_ITEM_GROUND:
-				case GROUND_ITEM_FIRST_OPTION:
-				case GROUND_ITEM_SECOND_OPTION:
-				case GROUND_ITEM_THIRD_OPTION:
-				case GROUND_ITEM_FOURTH_OPTION:
-				case GROUND_ITEM_FIFTH_OPTION:
 				case WALK:
 				default:
 					hintActor = null;
