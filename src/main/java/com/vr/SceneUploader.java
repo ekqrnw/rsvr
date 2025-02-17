@@ -578,6 +578,9 @@ class SceneUploader
 		final float[] normalsY = new float[verticesX2.length];
 		final float[] normalsZ = new float[verticesX2.length];
 
+		//short[] faceTextures = model.getFaceTextures();
+		//byte[] faceTransparencies = model.getFaceTransparencies();
+
 		for(int i = 0; i < normalsX.length; i++) {
 			normalsX[i] = 0;
 			normalsY[i] = 0;
@@ -595,9 +598,11 @@ class SceneUploader
 		}
 		for(int i = 0; i < normalsX.length; i++) {
 			double len = Math.sqrt( Math.pow(normalsX[i],2.0)+Math.pow(normalsY[i],2.0)+Math.pow(normalsZ[i],2.0));
-			normalsX[i] /= len;
-			normalsY[i] /= len;
-			normalsZ[i] /= len;
+			if(len != 0.0f) {
+				normalsX[i] /= len;
+				normalsY[i] /= len;
+				normalsZ[i] /= len;
+			}
 		}
 
 		final float[] verticesX = new float[verticesX2.length];
@@ -631,20 +636,7 @@ class SceneUploader
 
 		int len = 0;
 		for (int face = 0; face < triangleCount; ++face) {
-			int color1 = color1s[face];
-			int color2 = color2s[face];
-			int color3 = color3s[face];
-
-			if (color3 == -1) {
-				color2 = color3 = color1;
-			} else if (color3 == -2) {
-				vertexBuffer.put(0, 0, 0, 0);
-				vertexBuffer.put(0, 0, 0, 0);
-				vertexBuffer.put(0, 0, 0, 0);
-
-				len += 3;
-				continue;
-			}
+			//if ((faceTextures == null || faceTextures[face] == -1) && packAlphaPriority(faceTextures, faceTransparencies, null, face) != 0) continue;
 
 			int triangleA = indices1[face];
 			int triangleB = indices2[face];
