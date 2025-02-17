@@ -28,6 +28,9 @@ package com.vr;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.inject.Provides;
+//import javafx.application.Application;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
@@ -236,6 +239,11 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		.add(GL43C.GL_GEOMETRY_SHADER, "geom.glsl")
 		.add(GL43C.GL_FRAGMENT_SHADER, "frag.glsl");
 
+	static final com.vr.Shader OUTLINE_PROGRAM = new com.vr.Shader()
+			.add(GL43C.GL_VERTEX_SHADER, "vertoutline.glsl")
+			.add(GL43C.GL_GEOMETRY_SHADER, "geomoutline.glsl")
+			.add(GL43C.GL_FRAGMENT_SHADER, "fragoutline.glsl");
+
 	static final com.vr.Shader HAND_PROGRAM = new com.vr.Shader()
 			.add(GL43C.GL_VERTEX_SHADER, "verthands.glsl")
 			.add(GL43C.GL_FRAGMENT_SHADER, "fraghands.glsl");
@@ -254,6 +262,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		.add(GL43C.GL_FRAGMENT_SHADER, "fragui.glsl");
 
 	private int glProgram;
+	private int glOutlineProgram;
 	private int glComputeProgram;
 	private int glSmallComputeProgram;
 	private int glUnorderedComputeProgram;
@@ -265,6 +274,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 	private int vaoCompute;
 	private int vaoTemp;
+
+	private int vaoOutlineTemp;
 
 	private int interfaceTexture;
 	private int interfacePbo;
@@ -293,6 +304,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private final com.vr.GLBuffer sceneVertexBuffer = new com.vr.GLBuffer("scene vertex buffer");
 	private final com.vr.GLBuffer sceneUvBuffer = new com.vr.GLBuffer("scene tex buffer");
 	private final com.vr.GLBuffer tmpVertexBuffer = new com.vr.GLBuffer("tmp vertex buffer");
+	private final com.vr.GLBuffer tmpOutlineVertexBuffer = new com.vr.GLBuffer("tmp outline vertex buffer");
 	private final com.vr.GLBuffer tmpUvBuffer = new com.vr.GLBuffer("tmp tex buffer");
 	private final com.vr.GLBuffer tmpModelBufferLarge = new com.vr.GLBuffer("model buffer large");
 	private final com.vr.GLBuffer tmpModelBufferSmall = new com.vr.GLBuffer("model buffer small");
@@ -306,6 +318,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private final com.vr.GLBuffer uniformBuffer = new com.vr.GLBuffer("uniform buffer");
 
 	private com.vr.GpuIntBuffer vertexBuffer;
+	private com.vr.GpuIntBuffer outlineVertexBuffer;
 	private com.vr.GpuFloatBuffer uvBuffer;
 
 	private com.vr.GpuIntBuffer modelBufferUnordered;
@@ -328,6 +341,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	 * offset in the target buffer for model
 	 */
 	private int targetBufferOffset;
+
+	private int targetOutlineBufferOffset;
 
 	/**
 	 * offset into the temporary scene vertex buffer
@@ -369,6 +384,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private int uniTexSourceDimensions;
 	private int uniTexTargetDimensions;
 	private int uniUiAlphaOverlay;
+
+	private int uniOutlineProjectionMatrix;
 
 	private int uniMenuTex;
 	private int uniMenuTexSamplingMode;
@@ -419,6 +436,12 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	private int uniView;
 
 	private int uniModel;
+
+	private int uniOutlineProjection;
+
+	private int uniOutlineView;
+
+	private int uniOutlineModel;
 
 	private VRRobot robot;
 
@@ -1235,7 +1258,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				hooks.registerRenderableDrawListener(drawListener);
 
 				fboSceneHandle = rboSceneHandle = -1; // AA FBO
-				targetBufferOffset = 0;
+				targetBufferOffset = targetOutlineBufferOffset = 0;
 				unorderedModels = smallModels = largeModels = 0;
 
 				//AWTContext.loadNatives();
@@ -1299,6 +1322,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				}
 
 				vertexBuffer = new com.vr.GpuIntBuffer();
+				outlineVertexBuffer = new com.vr.GpuIntBuffer();
 				uvBuffer = new com.vr.GpuFloatBuffer();
 
 				modelBufferUnordered = new com.vr.GpuIntBuffer();
@@ -1483,6 +1507,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			glCapabilities = null;
 
 			vertexBuffer = null;
+			outlineVertexBuffer = null;
 			uvBuffer = null;
 
 			modelBufferSmall = null;
@@ -1611,6 +1636,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	{
 		Template template = createTemplate(-1, -1);
 		glProgram = PROGRAM.compile(template);
+		glOutlineProgram = OUTLINE_PROGRAM.compile(template);
 		glUiProgram = UI_PROGRAM.compile(template);
 		glHandProgram = HAND_PROGRAM.compile(template);
 		glMenuProgram = MENU_PROGRAM.compile(template);
@@ -1641,6 +1667,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		uniView = GL43C.glGetUniformLocation(glProgram, "viewMatrix");
 		uniModel = GL43C.glGetUniformLocation(glProgram, "model");
 
+		uniOutlineProjection = GL43C.glGetUniformLocation(glOutlineProgram, "projection");
+		uniOutlineView = GL43C.glGetUniformLocation(glOutlineProgram, "viewMatrix");
+		uniOutlineModel = GL43C.glGetUniformLocation(glOutlineProgram, "model");
+
 		uniProjectionMatrix = GL43C.glGetUniformLocation(glProgram, "projectionMatrix");
 		uniBrightness = GL43C.glGetUniformLocation(glProgram, "brightness");
 		uniSmoothBanding = GL43C.glGetUniformLocation(glProgram, "smoothBanding");
@@ -1655,6 +1685,8 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		uniBlockMain = GL43C.glGetUniformBlockIndex(glProgram, "uniforms");
 		uniTextures = GL43C.glGetUniformLocation(glProgram, "textures");
 		uniTextureAnimations = GL43C.glGetUniformLocation(glProgram, "textureAnimations");
+
+		uniOutlineProjectionMatrix = GL43C.glGetUniformLocation(glOutlineProgram, "projectionMatrix");
 
 		uniTex = GL43C.glGetUniformLocation(glUiProgram, "tex");
 		uniTexSamplingMode = GL43C.glGetUniformLocation(glUiProgram, "samplingMode");
@@ -1696,6 +1728,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	{
 		GL43C.glDeleteProgram(glProgram);
 		glProgram = -1;
+
+		GL43C.glDeleteProgram(glOutlineProgram);
+		glOutlineProgram = -1;
 
 		GL43C.glDeleteProgram(glComputeProgram);
 		glComputeProgram = -1;
@@ -1741,6 +1776,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glEnableVertexAttribArray(1);
 		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, tmpUvBuffer.glBufferId);
 		GL43C.glVertexAttribPointer(1, 4, GL43C.GL_FLOAT, false, 0, 0);
+
+		vaoOutlineTemp = GL43C.glGenVertexArrays();
+		GL43C.glBindVertexArray(vaoOutlineTemp);
+
+		GL43C.glEnableVertexAttribArray(0);
+		GL43C.glBindBuffer(GL43C.GL_ARRAY_BUFFER, tmpOutlineVertexBuffer.glBufferId);
+		GL43C.glVertexAttribIPointer(0, 4, GL43C.GL_INT, 0, 0);
 
 		vaoMenuHandle = GL43C.glGenVertexArrays();
 		vboMenuHandle = GL43C.glGenBuffers();
@@ -1833,6 +1875,9 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		GL43C.glDeleteVertexArrays(vaoTemp);
 		vaoTemp = -1;
 
+		GL43C.glDeleteVertexArrays(vaoOutlineTemp);
+		vaoOutlineTemp = -1;
+
 		GL43C.glDeleteBuffers(vboUiHandle);
 		vboUiHandle = -1;
 
@@ -1848,6 +1893,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		initGlBuffer(sceneVertexBuffer);
 		initGlBuffer(sceneUvBuffer);
 		initGlBuffer(tmpVertexBuffer);
+		initGlBuffer(tmpOutlineVertexBuffer);
 		initGlBuffer(tmpUvBuffer);
 		initGlBuffer(tmpModelBufferLarge);
 		initGlBuffer(tmpModelBufferSmall);
@@ -1867,6 +1913,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		destroyGlBuffer(sceneUvBuffer);
 
 		destroyGlBuffer(tmpVertexBuffer);
+		destroyGlBuffer(tmpOutlineVertexBuffer);
 		destroyGlBuffer(tmpUvBuffer);
 		destroyGlBuffer(tmpModelBufferLarge);
 		destroyGlBuffer(tmpModelBufferSmall);
@@ -1990,6 +2037,396 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}
 	}*/
 
+	boolean foundHoverRender = false;
+	boolean foundInteractRender = false;
+
+	private void renderMouseover(Projection projection, int orientation, int x, int y, int z,Renderable renderable)
+	{
+		MenuEntry[] menuEntries = client.getMenuEntries();
+		if (menuEntries.length == 0)
+		{
+			return;
+		}
+
+		MenuEntry entry = client.isMenuOpen() ? hoveredMenuEntry(menuEntries) : menuEntries[menuEntries.length - 1];
+		MenuAction menuAction = entry.getType();
+
+		switch (menuAction)
+		{
+			case WIDGET_TARGET_ON_GAME_OBJECT:
+			case GAME_OBJECT_FIRST_OPTION:
+			case GAME_OBJECT_SECOND_OPTION:
+			case GAME_OBJECT_THIRD_OPTION:
+			case GAME_OBJECT_FOURTH_OPTION:
+			case GAME_OBJECT_FIFTH_OPTION:
+			case EXAMINE_OBJECT:
+			{
+				int x3 = entry.getParam0();
+				int y3 = entry.getParam1();
+				int id = entry.getIdentifier();
+				TileObject tileObject = findTileObject(x3, y3, id);
+
+				if (tileObject != null && (tileObject != getInteractedObject()))
+				{
+					int x2 = tileObject.getX();
+					int y2 = tileObject.getY();
+					int z2 = tileObject.getZ();
+					//System.out.println("1");
+					if(tileObject instanceof WallObject){
+						//System.out.println("1");
+						if(((WallObject) tileObject).getRenderable1() != null) {
+							Renderable rend = (((WallObject) tileObject).getRenderable1() instanceof Model)?((WallObject) tileObject).getRenderable1():((WallObject) tileObject).getRenderable1().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+						}
+						if(((WallObject) tileObject).getRenderable2() != null) {
+							Renderable rend = (((WallObject) tileObject).getRenderable2() instanceof Model)?((WallObject) tileObject).getRenderable2():((WallObject) tileObject).getRenderable2().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+						}
+						if(((WallObject) tileObject).getRenderable1() != null) {
+							Renderable rend = (((WallObject) tileObject).getRenderable1() instanceof Model)?((WallObject) tileObject).getRenderable1():((WallObject) tileObject).getRenderable1().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+						if(((WallObject) tileObject).getRenderable2() != null) {
+							Renderable rend = (((WallObject) tileObject).getRenderable2() instanceof Model)?((WallObject) tileObject).getRenderable2():((WallObject) tileObject).getRenderable2().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+					} else if (tileObject instanceof GroundObject){
+						if(((GroundObject) tileObject).getRenderable() != null) {
+							Renderable rend = (((GroundObject) tileObject).getRenderable() instanceof Model)?((GroundObject) tileObject).getRenderable():((GroundObject) tileObject).getRenderable().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+						//System.out.println("2");
+					} else if (tileObject instanceof DecorativeObject){
+						if(((DecorativeObject) tileObject).getRenderable() != null) {
+							Renderable rend = (((DecorativeObject) tileObject).getRenderable() instanceof Model)?((DecorativeObject) tileObject).getRenderable():((DecorativeObject) tileObject).getRenderable().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+						}
+						if(((DecorativeObject) tileObject).getRenderable2() != null) {
+							Renderable rend = (((DecorativeObject) tileObject).getRenderable2() instanceof Model)?((DecorativeObject) tileObject).getRenderable2():((DecorativeObject) tileObject).getRenderable2().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+						}
+						if(((DecorativeObject) tileObject).getRenderable() != null) {
+							Renderable rend = (((DecorativeObject) tileObject).getRenderable() instanceof Model)?((DecorativeObject) tileObject).getRenderable():((DecorativeObject) tileObject).getRenderable().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+						if(((DecorativeObject) tileObject).getRenderable2() != null) {
+							Renderable rend = (((DecorativeObject) tileObject).getRenderable2() instanceof Model)?((DecorativeObject) tileObject).getRenderable2():((DecorativeObject) tileObject).getRenderable2().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+						//System.out.println("3");
+					} else if (tileObject instanceof GameObject){
+						if(((GameObject) tileObject).getRenderable() != null) {
+							Renderable rend = (((GameObject) tileObject).getRenderable() instanceof Model) ? ((GameObject) tileObject).getRenderable() : ((GameObject) tileObject).getRenderable().getModel();
+							foundHoverRender = true;
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, orientation, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+						}
+					}
+					//modelOutlineRenderer.drawOutline(tileObject, config.borderWidth(), OBJECT_HOVER_HIGHLIGHT_COLOR, config.outlineFeather());
+				}
+				break;
+			}
+			case WIDGET_TARGET_ON_NPC:
+			case NPC_FIRST_OPTION:
+			case NPC_SECOND_OPTION:
+			case NPC_THIRD_OPTION:
+			case NPC_FOURTH_OPTION:
+			case NPC_FIFTH_OPTION:
+			case EXAMINE_NPC:
+			{
+				NPC npc = entry.getNpc();
+				if (npc != null && (npc != getInteractedTarget()) && npc == renderable)
+				{
+					int highlightColor = menuAction == MenuAction.NPC_SECOND_OPTION
+							|| menuAction == MenuAction.WIDGET_TARGET_ON_NPC && WidgetUtil.componentToInterface(client.getSelectedWidget().getId()) == InterfaceID.SPELLBOOK
+							? NPC_ATTACK_HOVER_HIGHLIGHT_COLOR : NPC_HOVER_HIGHLIGHT_COLOR;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,((NPC)npc).getModel(),orientation, x, y, z,outlineVertexBuffer,highlightColor);
+					foundHoverRender = true;
+				}
+				//System.out.println("5");
+				break;
+			}
+		}
+		if(targetOutlineBufferOffset > 0) {
+			//System.out.println("HERE: " + targetOutlineBufferOffset);
+		}
+	}
+
+	private static final int INTERACT_CLICK_COLOR = 0xFFFFFF;
+	private static final int OBJECT_HOVER_HIGHLIGHT_COLOR = 0x00FFFF;
+	private static final int NPC_ATTACK_HOVER_HIGHLIGHT_COLOR = 0xFFFF00;
+	private static final int NPC_HOVER_HIGHLIGHT_COLOR = 0xFFFF00;
+	private static final int NPC_ATTACK_HIGHLIGHT_COLOR = 0xFF0000;
+	private static final int OBJECT_INTERACT_HIGHLIGHT_COLOR = 0xFF0000;
+	private static final int NPC_INTERACT_HIGHLIGHT_COLOR = 0xFF0000;
+
+	private void renderTarget(Projection projection, int orientation, int x, int y, int z,Renderable renderable)
+	{
+		TileObject interactedObject = getInteractedObject();
+		if (interactedObject != null)
+		{
+			int x2 = interactedObject.getX();
+			int y2 = interactedObject.getY();
+			int z2 = interactedObject.getZ();
+
+			int clickColor = getClickColor(OBJECT_HOVER_HIGHLIGHT_COLOR, OBJECT_INTERACT_HIGHLIGHT_COLOR,
+					client.getGameCycle() - getGameCycle());
+			//modelOutlineRenderer.drawOutline(interactedObject, config.borderWidth(), clickColor, config.outlineFeather());
+			if(interactedObject instanceof WallObject){
+				//System.out.println("6");
+				if(((WallObject) interactedObject).getRenderable1() != null) {
+					Renderable rend = (((WallObject) interactedObject).getRenderable1() instanceof Model)?((WallObject) interactedObject).getRenderable1():((WallObject) interactedObject).getRenderable1().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+				}
+				if(((WallObject) interactedObject).getRenderable2() != null) {
+					Renderable rend = (((WallObject) interactedObject).getRenderable2() instanceof Model)?((WallObject) interactedObject).getRenderable2():((WallObject) interactedObject).getRenderable2().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+				}
+				if(((WallObject) interactedObject).getRenderable1() != null) {
+					Renderable rend = (((WallObject) interactedObject).getRenderable1() instanceof Model)?((WallObject) interactedObject).getRenderable1():((WallObject) interactedObject).getRenderable1().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+				if(((WallObject) interactedObject).getRenderable2() != null) {
+					Renderable rend = (((WallObject) interactedObject).getRenderable2() instanceof Model)?((WallObject) interactedObject).getRenderable2():((WallObject) interactedObject).getRenderable2().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+			} else if (interactedObject instanceof GroundObject){
+				//System.out.println("7");
+				if(((GroundObject) interactedObject).getRenderable() != null) {
+					Renderable rend = (((GroundObject) interactedObject).getRenderable() instanceof Model) ? ((GroundObject) interactedObject).getRenderable() : ((GroundObject) interactedObject).getRenderable().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+			} else if (interactedObject instanceof DecorativeObject){
+				//System.out.println("8");
+				if(((DecorativeObject) interactedObject).getRenderable() != null) {
+					Renderable rend = (((DecorativeObject) interactedObject).getRenderable() instanceof Model)?((DecorativeObject) interactedObject).getRenderable():((DecorativeObject) interactedObject).getRenderable().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+				}
+				if(((DecorativeObject) interactedObject).getRenderable2() != null) {
+					Renderable rend = (((DecorativeObject) interactedObject).getRenderable2() instanceof Model)?((DecorativeObject) interactedObject).getRenderable2():((DecorativeObject) interactedObject).getRenderable2().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase1(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer);
+				}
+				if(((DecorativeObject) interactedObject).getRenderable() != null) {
+					Renderable rend = (((DecorativeObject) interactedObject).getRenderable() instanceof Model)?((DecorativeObject) interactedObject).getRenderable():((DecorativeObject) interactedObject).getRenderable().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+				if(((DecorativeObject) interactedObject).getRenderable2() != null) {
+					Renderable rend = (((DecorativeObject) interactedObject).getRenderable2() instanceof Model)?((DecorativeObject) interactedObject).getRenderable2():((DecorativeObject) interactedObject).getRenderable2().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlinePhase2(projection,(Model)rend,orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+			} else if (interactedObject instanceof GameObject){
+				if(((GameObject) interactedObject).getRenderable() != null) {
+					Renderable rend = (((GameObject) interactedObject).getRenderable() instanceof Model) ? ((GameObject) interactedObject).getRenderable() : ((GameObject) interactedObject).getRenderable().getModel();
+					foundInteractRender = true;
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, orientation, x2, z2, y2, outlineVertexBuffer, clickColor);
+				}
+			}
+		}
+
+		Actor target = getInteractedTarget();
+		if (target instanceof NPC && target == renderable)
+		{
+			int startColor = isAttacked() ? NPC_ATTACK_HOVER_HIGHLIGHT_COLOR : NPC_HOVER_HIGHLIGHT_COLOR;
+			int endColor = isAttacked() ? NPC_ATTACK_HIGHLIGHT_COLOR : NPC_INTERACT_HIGHLIGHT_COLOR;
+			int clickColor = getClickColor(startColor, endColor,
+					client.getGameCycle() - getGameCycle());
+			//modelOutlineRenderer.drawOutline((NPC) target, config.borderWidth(), clickColor, config.outlineFeather());
+			targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection,((NPC)target).getModel(),orientation, x, y, z,outlineVertexBuffer,clickColor);
+			//System.out.println("10");
+			foundInteractRender = true;
+		}
+		if(targetOutlineBufferOffset > 0) {
+			//System.out.println("HERE: " + targetOutlineBufferOffset);
+		}
+	}
+
+	private int getClickColor(int start, int end, long time)
+	{
+		if (time < 5)
+		{
+			return (int)(start+((INTERACT_CLICK_COLOR-start)*time / 5f));
+		}
+		else if (time < 10)
+		{
+			return (int)(INTERACT_CLICK_COLOR+((end-INTERACT_CLICK_COLOR)*(time - 5) / 5f));
+		}
+		return end;
+	}
+
+	private MenuEntry hoveredMenuEntry(final MenuEntry[] menuEntries)
+	{
+		final int menuX = client.getMenuX();
+		final int menuY = client.getMenuY();
+		final int menuWidth = client.getMenuWidth();
+		final Point mousePosition = client.getMouseCanvasPosition();
+
+		int dy = mousePosition.getY() - menuY;
+		dy -= 19; // Height of Choose Option
+		if (dy < 0)
+		{
+			return menuEntries[menuEntries.length - 1];
+		}
+
+		int idx = dy / 15; // Height of each menu option
+		idx = menuEntries.length - 1 - idx;
+
+		if (mousePosition.getX() > menuX && mousePosition.getX() < menuX + menuWidth
+				&& idx >= 0 && idx < menuEntries.length)
+		{
+			return menuEntries[idx];
+		}
+		return menuEntries[menuEntries.length - 1];
+	}
+
+	@Getter(AccessLevel.PACKAGE)
+	private TileObject interactedObject;
+	private NPC interactedNpc;
+	@Getter(AccessLevel.PACKAGE)
+	boolean attacked;
+	private int clickTick;
+	@Getter(AccessLevel.PACKAGE)
+	private int gameCycle;
+
+	@Subscribe
+	public void onNpcDespawned(NpcDespawned npcDespawned)
+	{
+		if (npcDespawned.getNpc() == interactedNpc)
+		{
+			interactedNpc = null;
+		}
+	}
+
+	@Subscribe
+	public void onInteractingChanged(InteractingChanged interactingChanged)
+	{
+		if (interactingChanged.getSource() == client.getLocalPlayer()
+				&& client.getTickCount() > clickTick && interactingChanged.getTarget() != interactedNpc)
+		{
+			interactedNpc = null;
+			attacked = interactingChanged.getTarget() != null && interactingChanged.getTarget().getCombatLevel() > 0;
+		}
+	}
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked menuOptionClicked)
+	{
+		switch (menuOptionClicked.getMenuAction())
+		{
+			case WIDGET_TARGET_ON_GAME_OBJECT:
+			case GAME_OBJECT_FIRST_OPTION:
+			case GAME_OBJECT_SECOND_OPTION:
+			case GAME_OBJECT_THIRD_OPTION:
+			case GAME_OBJECT_FOURTH_OPTION:
+			case GAME_OBJECT_FIFTH_OPTION:
+			{
+				int x = menuOptionClicked.getParam0();
+				int y = menuOptionClicked.getParam1();
+				int id = menuOptionClicked.getId();
+				interactedObject = findTileObject(x, y, id);
+				interactedNpc = null;
+				clickTick = client.getTickCount();
+				gameCycle = client.getGameCycle();
+				break;
+			}
+			case WIDGET_TARGET_ON_NPC:
+			case NPC_FIRST_OPTION:
+			case NPC_SECOND_OPTION:
+			case NPC_THIRD_OPTION:
+			case NPC_FOURTH_OPTION:
+			case NPC_FIFTH_OPTION:
+			{
+				interactedObject = null;
+				interactedNpc = menuOptionClicked.getMenuEntry().getNpc();
+				attacked = menuOptionClicked.getMenuAction() == MenuAction.NPC_SECOND_OPTION ||
+						menuOptionClicked.getMenuAction() == MenuAction.WIDGET_TARGET_ON_NPC
+								&& client.getSelectedWidget() != null
+								&& WidgetUtil.componentToInterface(client.getSelectedWidget().getId()) == InterfaceID.SPELLBOOK;
+				clickTick = client.getTickCount();
+				gameCycle = client.getGameCycle();
+				break;
+			}
+			// Any menu click which clears an interaction
+			case WALK:
+			case WIDGET_TARGET_ON_WIDGET:
+			case WIDGET_TARGET_ON_GROUND_ITEM:
+			case WIDGET_TARGET_ON_PLAYER:
+			case GROUND_ITEM_FIRST_OPTION:
+			case GROUND_ITEM_SECOND_OPTION:
+			case GROUND_ITEM_THIRD_OPTION:
+			case GROUND_ITEM_FOURTH_OPTION:
+			case GROUND_ITEM_FIFTH_OPTION:
+				interactedObject = null;
+				interactedNpc = null;
+				break;
+			default:
+				if (menuOptionClicked.isItemOp())
+				{
+					interactedObject = null;
+					interactedNpc = null;
+				}
+		}
+	}
+
+	TileObject findTileObject(int x, int y, int id)
+	{
+		Scene scene = client.getScene();
+		Tile[][][] tiles = scene.getTiles();
+		Tile tile = tiles[client.getPlane()][x][y];
+		if (tile != null)
+		{
+			for (GameObject gameObject : tile.getGameObjects())
+			{
+				if (gameObject != null && gameObject.getId() == id)
+				{
+					return gameObject;
+				}
+			}
+
+			WallObject wallObject = tile.getWallObject();
+			if (wallObject != null && wallObject.getId() == id)
+			{
+				return wallObject;
+			}
+
+			DecorativeObject decorativeObject = tile.getDecorativeObject();
+			if (decorativeObject != null && decorativeObject.getId() == id)
+			{
+				return decorativeObject;
+			}
+
+			GroundObject groundObject = tile.getGroundObject();
+			if (groundObject != null && groundObject.getId() == id)
+			{
+				return groundObject;
+			}
+		}
+		return null;
+	}
+
+	@Nullable
+	Actor getInteractedTarget()
+	{
+		if(client.getLocalPlayer() == null) return null;
+		return interactedNpc != null ? interactedNpc : client.getLocalPlayer().getInteracting();
+	}
+
 	@Override
 	public void drawScene(double cameraX, double cameraY, double cameraZ, double cameraPitch, double cameraYaw, int plane)
 	{
@@ -2009,8 +2446,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		// still redraw the previous frame's scene to emulate the client behavior of not painting over the
 		// viewport buffer.
 		hudHelper.swap(client);
-		targetBufferOffset = 0;
+		targetBufferOffset = targetOutlineBufferOffset = 0;
 
+		foundHoverRender = false;
+		foundInteractRender = false;
 		// UBO. Only the first 32 bytes get modified here, the rest is the constant sin/cos table.
 		// We can reuse the vertex buffer since it isn't used yet.
 		vertexBuffer.clear();
@@ -2040,6 +2479,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	@Override
 	public void postDrawScene()
 	{
+		outlineVertexBuffer.flip();
+		IntBuffer outlineVertexBuffer = this.outlineVertexBuffer.getBuffer();
+		updateBuffer(tmpOutlineVertexBuffer, GL43C.GL_ARRAY_BUFFER, outlineVertexBuffer, GL43C.GL_DYNAMIC_DRAW, 0L);
+
 		if (computeMode == ComputeMode.NONE)
 		{
 			// Upload buffers
@@ -2792,6 +3235,33 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			drawCursor(viewMatrix, handMatrix, cursorMatrix, projectionMatrix, state);
 			//drawUi(overlayColor, 100, 100, viewMatrix, projectionMatrix, mapMatrix);//mapMatrix);
 
+			GL43C.glUseProgram(glOutlineProgram);
+
+			//glDisable(GL_DEPTH_TEST);
+			glClear(GL_DEPTH_BUFFER_BIT);
+			//glDepthMask(false);
+			//glEnable(GL_CULL_FACE);
+			//glFrontFace(GL_CCW);
+			//glCullFace(GL_FRONT);
+			//glDepthFunc(GL_ALWAYS);
+			GL43C.glEnable(GL43C.GL_BLEND);
+			GL43C.glBlendFunc(GL43C.GL_SRC_ALPHA,GL43C.GL_ONE_MINUS_SRC_ALPHA);
+
+			GL43C.glUniformMatrix4fv(uniOutlineProjectionMatrix, false, projectionMatrix2);
+			GL43C.glUniformMatrix4fv(uniOutlineView, false, viewMatrix.get(mvpMatrix));
+			GL43C.glUniformMatrix4fv(uniOutlineProjection, false, projectionMatrix.get(mvpMatrix));
+
+			GL43C.glBindVertexArray(vaoOutlineTemp);
+			GL43C.glDrawArrays(GL43C.GL_TRIANGLES, 0, targetOutlineBufferOffset);
+
+			//glEnable(GL_DEPTH_TEST);
+			//glDepthMask(true);
+			//glDisable(GL_CULL_FACE);
+			//glDepthFunc(GL_LESS);
+			GL43C.glDisable(GL43C.GL_BLEND);
+			GL43C.glBindVertexArray(0);
+			GL43C.glUseProgram(0);
+
 			if(client.isMenuOpen() && !hovering){
 				glClear(GL_DEPTH_BUFFER_BIT);
 				drawMenu(overlayColor, client.getMenuWidth(), Math.min(lastCanvasHeight,client.getMenuHeight()), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
@@ -3101,6 +3571,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		}*/
 
 		vertexBuffer.clear();
+		outlineVertexBuffer.clear();
 		uvBuffer.clear();
 		modelBuffer.clear();
 		modelBufferSmall.clear();
@@ -3485,7 +3956,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		if (gameStateChanged.getGameState() == GameState.LOGIN_SCREEN)
 		{
 			// Avoid drawing the last frame's buffer during LOADING after LOGIN_SCREEN
-			targetBufferOffset = 0;
+			targetBufferOffset = targetOutlineBufferOffset = 0;
 		}
 		if (gameStateChanged.getGameState() == GameState.STARTING)
 		{
@@ -3495,6 +3966,10 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			}
 			textureArrayId = -1;
 			lastAnisotropicFilteringLevel = -1;
+		}
+		if (gameStateChanged.getGameState() == GameState.LOADING)
+		{
+			interactedObject = null;
 		}
 	}
 
@@ -3511,6 +3986,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 		//hudHelper.updateLocations();
 		hudHelper.cullHealthbars(client.getGameCycle());
 		hudHelper.cullHitsplats(client.getGameCycle());
+
+		if (client.getTickCount() > clickTick && client.getLocalDestinationLocation() == null)
+		{
+			// when the destination is reached, clear the interacting object
+			interactedObject = null;
+			interactedNpc = null;
+		}
 	}
 
 	Integer menuTileX = null;
@@ -3941,6 +4423,13 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 	@Override
 	public void draw(Projection projection, Scene scene, Renderable renderable, int orientation, int x, int y, int z, long hash)
 	{
+		if(!foundHoverRender) {
+			renderMouseover(projection, orientation, x, y, z, renderable);
+		}
+		if(!foundInteractRender) {
+			renderTarget(projection, orientation, x, y, z, renderable);
+		}
+
 		Model model, offsetModel;
 		if (renderable instanceof Model)
 		{

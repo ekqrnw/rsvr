@@ -28,6 +28,8 @@ import com.google.common.base.Stopwatch;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import com.vr.regions.Regions;
+import org.joml.Vector3f;
+import org.joml.Vector3i;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -534,6 +536,140 @@ class SceneUploader
 			}
 
 			len += 3;
+		}
+
+		return len;
+	}
+
+	public int pushModelOutlinePhase1(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer){
+		return pushModelOutline(proj, model, orientation, x, y, z, vertexBuffer, 0.0f, 0);
+	}
+
+	public int pushModelOutlinePhase2(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer, int color){
+		return pushModelOutline(proj, model, orientation, x, y, z, vertexBuffer, 5.f, color);
+	}
+
+	public int pushModelOutlineCombined(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer, int color){
+		return pushModelOutlinePhase1(proj, model, orientation, x, y, z, vertexBuffer)+
+				pushModelOutlinePhase2(proj, model, orientation, x, y, z, vertexBuffer, color);
+	}
+
+	public int pushModelOutline(Projection proj, Model model, int orientation, int x, int y, int z, GpuIntBuffer vertexBuffer, float scale, int color)
+	{
+		if (model.getUnskewedModel() != null)
+		{
+			//System.out.println("SKEWED.");
+			model = model.getUnskewedModel();
+		}
+
+		final int triangleCount = Math.min(model.getFaceCount(), VRPlugin.MAX_TRIANGLE);
+
+		vertexBuffer.ensureCapacity(triangleCount * 12);
+
+		final float[] verticesX2 = model.getVerticesX();
+		final float[] verticesY2 = model.getVerticesY();
+		final float[] verticesZ2 = model.getVerticesZ();
+
+		final int[] indices1 = model.getFaceIndices1();
+		final int[] indices2 = model.getFaceIndices2();
+		final int[] indices3 = model.getFaceIndices3();
+
+		final float[] normalsX = new float[verticesX2.length];
+		final float[] normalsY = new float[verticesX2.length];
+		final float[] normalsZ = new float[verticesX2.length];
+
+		for(int i = 0; i < normalsX.length; i++) {
+			normalsX[i] = 0;
+			normalsY[i] = 0;
+			normalsZ[i] = 0;
+		}
+
+		for(int i = 0; i < indices1.length; i++) {
+			Vector3f vec1 = new Vector3f(verticesX2[indices1[i]],verticesY2[indices1[i]],verticesZ2[indices1[i]]);
+			Vector3f vec2 = new Vector3f(verticesX2[indices2[i]],verticesY2[indices2[i]],verticesZ2[indices2[i]]);
+			Vector3f vec3 = new Vector3f(verticesX2[indices3[i]],verticesY2[indices3[i]],verticesZ2[indices3[i]]);
+			Vector3f vec4 = vec2.sub(vec1).cross(vec3.sub(vec1));
+			normalsX[indices1[i]] += vec4.x; normalsX[indices2[i]] += vec4.x; normalsX[indices3[i]] += vec4.x;
+			normalsY[indices1[i]] += vec4.y; normalsY[indices2[i]] += vec4.y; normalsY[indices3[i]] += vec4.y;
+			normalsZ[indices1[i]] += vec4.z; normalsZ[indices2[i]] += vec4.z; normalsZ[indices3[i]] += vec4.z;
+		}
+		for(int i = 0; i < normalsX.length; i++) {
+			double len = Math.sqrt( Math.pow(normalsX[i],2.0)+Math.pow(normalsY[i],2.0)+Math.pow(normalsZ[i],2.0));
+			normalsX[i] /= len;
+			normalsY[i] /= len;
+			normalsZ[i] /= len;
+		}
+
+		final float[] verticesX = new float[verticesX2.length];
+		final float[] verticesY = new float[verticesX2.length];
+		final float[] verticesZ = new float[verticesX2.length];
+
+		for(int i = 0; i < normalsX.length; i++){
+			verticesX[i] = verticesX2[i]+normalsX[i]*scale;
+			verticesY[i] = verticesY2[i]+normalsY[i]*scale;
+			verticesZ[i] = verticesZ2[i]+normalsZ[i]*scale;
+		}
+
+		final int centerX = client.getCenterX();
+		final int centerY = client.getCenterY();
+		final int zoom = client.get3dZoom();
+
+		int orientSine = 0;
+		int orientCosine = 0;
+		if (orientation != 0)
+		{
+			orientSine = Perspective.SINE[orientation];
+			orientCosine = Perspective.COSINE[orientation];
+		}
+
+		float[] p = proj.project(x, y, z);
+		int zero = (int) p[2];
+
+		final int[] color1s = model.getFaceColors1();
+		final int[] color2s = model.getFaceColors2();
+		final int[] color3s = model.getFaceColors3();
+
+		int len = 0;
+		for (int face = 0; face < triangleCount; ++face) {
+			int color1 = color1s[face];
+			int color2 = color2s[face];
+			int color3 = color3s[face];
+
+			if (color3 == -1) {
+				color2 = color3 = color1;
+			} else if (color3 == -2) {
+				vertexBuffer.put(0, 0, 0, 0);
+				vertexBuffer.put(0, 0, 0, 0);
+				vertexBuffer.put(0, 0, 0, 0);
+
+				len += 3;
+				continue;
+			}
+
+			int triangleA = indices1[face];
+			int triangleB = indices2[face];
+			int triangleC = indices3[face];
+
+			for(int ind : new int[]{triangleA, triangleB, triangleC}) {
+
+				int vertexX = (int) ((verticesX[ind]));
+				int vertexY = (int) ((verticesY[ind]));
+				int vertexZ = (int) ((verticesZ[ind]));
+
+				if (orientation != 0) {
+					int i = vertexZ * orientSine + vertexX * orientCosine >> 16;
+					vertexZ = vertexZ * orientCosine - vertexX * orientSine >> 16;
+					vertexX = i;
+				}
+
+				// move to local position
+				vertexX += x;
+				vertexY += y;
+				vertexZ += z;
+
+				vertexBuffer.put(vertexX, vertexY, vertexZ, color);
+				len += 1;
+			}
 		}
 
 		return len;
