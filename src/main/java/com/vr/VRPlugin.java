@@ -2127,7 +2127,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 						if(((GameObject) tileObject).getRenderable() != null) {
 							Renderable rend = (((GameObject) tileObject).getRenderable() instanceof Model) ? ((GameObject) tileObject).getRenderable() : ((GameObject) tileObject).getRenderable().getModel();
 							foundHoverRender = true;
-							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, 0, x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
+							targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, ((GameObject) tileObject).getModelOrientation(), x2, z2, y2, outlineVertexBuffer, OBJECT_HOVER_HIGHLIGHT_COLOR);
 						}
 					}
 					//modelOutlineRenderer.drawOutline(tileObject, config.borderWidth(), OBJECT_HOVER_HIGHLIGHT_COLOR, config.outlineFeather());
@@ -2235,7 +2235,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 				if(((GameObject) interactedObject).getRenderable() != null) {
 					Renderable rend = (((GameObject) interactedObject).getRenderable() instanceof Model) ? ((GameObject) interactedObject).getRenderable() : ((GameObject) interactedObject).getRenderable().getModel();
 					foundInteractRender = true;
-					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, 0, x2, z2, y2, outlineVertexBuffer, clickColor);
+					targetOutlineBufferOffset += sceneUploader.pushModelOutlineCombined(projection, (Model) rend, ((GameObject) interactedObject).getModelOrientation(), x2, z2, y2, outlineVertexBuffer, clickColor);
 				}
 			}
 		}
