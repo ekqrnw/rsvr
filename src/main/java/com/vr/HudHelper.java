@@ -1180,6 +1180,9 @@ public class HudHelper {
                 float b = Integer.parseInt(color.substring(4),16)/255.0f;
                 GL43C.glUniform3fv(uniHintCol, new float[]{r,g,b});
                 str = str.substring(index+1);
+                if(str.trim().endsWith("</col>")){
+                    str = str.substring(0, str.lastIndexOf('<'));
+                }
             }
             for (char cha : str.toCharArray()) {
                 Character ch = characters.get(cha);
