@@ -16,12 +16,12 @@ dependencies {
 	implementation 'org.projectlombok:lombok:1.18.22'
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
 
-	implementation 'org.lwjgl:lwjgl-openxr:3.3.2'
-	implementation 'org.lwjgl:lwjgl-openxr:3.3.2:natives-windows'
-	implementation 'org.lwjgl:lwjgl-opengl:3.3.2'
-	implementation 'org.lwjgl:lwjgl-glfw:3.3.2'
-	implementation 'org.lwjgl:lwjgl-glfw:3.3.2:natives-windows'
-	implementation 'org.lwjgl:lwjgl-egl:3.3.2'
+	implementation 'org.lwjgl:lwjgl-openxr:3.3.4'
+	implementation 'org.lwjgl:lwjgl-openxr:3.3.4:natives-windows'
+	implementation 'org.lwjgl:lwjgl-opengl:3.3.4'
+	implementation 'org.lwjgl:lwjgl-glfw:3.3.4'
+	implementation 'org.lwjgl:lwjgl-glfw:3.3.4:natives-windows'
+	implementation 'org.lwjgl:lwjgl-egl:3.3.4'
 	implementation 'org.joml:joml:1.10.5'
 	implementation 'com.badlogicgames.gdx:gdx-freetype:1.9.9'
 	implementation 'com.badlogicgames.gdx:gdx:1.9.9'
@@ -30,8 +30,8 @@ dependencies {
 	implementation "com.badlogicgames.gdx:gdx-box2d-platform:1.9.9:natives-desktop"
 	implementation "com.badlogicgames.gdx:gdx-backend-lwjgl:1.9.9"
 	// https://mvnrepository.com/artifact/org.lwjgl/lwjgl-stb
-	implementation 'org.lwjgl:lwjgl-stb:3.3.2'
-	implementation 'org.lwjgl:lwjgl-stb:3.3.2:natives-windows'
+	implementation 'org.lwjgl:lwjgl-stb:3.3.4'
+	implementation 'org.lwjgl:lwjgl-stb:3.3.4:natives-windows'
 
 
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
@@ -40,13 +40,13 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 
-	testImplementation 'org.lwjgl:lwjgl-openxr:3.3.2'
-	testImplementation 'org.lwjgl:lwjgl-opengl:3.3.2'
-	testImplementation 'org.lwjgl:lwjgl-glfw:3.3.2'
-	testImplementation 'org.lwjgl:lwjgl-egl:3.3.2'
+	testImplementation 'org.lwjgl:lwjgl-openxr:3.3.4'
+	testImplementation 'org.lwjgl:lwjgl-opengl:3.3.4'
+	testImplementation 'org.lwjgl:lwjgl-glfw:3.3.4'
+	testImplementation 'org.lwjgl:lwjgl-egl:3.3.4'
 	testImplementation 'org.joml:joml:1.10.5'
-	testImplementation 'org.lwjgl:lwjgl-stb:3.3.2'
-	testImplementation 'org.lwjgl:lwjgl-stb:3.3.2:natives-windows'
+	testImplementation 'org.lwjgl:lwjgl-stb:3.3.4'
+	testImplementation 'org.lwjgl:lwjgl-stb:3.3.4:natives-windows'
 }
 
 group = 'com.rsvr'
