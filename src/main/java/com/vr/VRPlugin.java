@@ -3270,7 +3270,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 			if(client.isMenuOpen() && !hovering){
 				glClear(GL_DEPTH_BUFFER_BIT);
 				drawMenu(overlayColor, client.getMenuWidth(), Math.min(lastCanvasHeight,client.getMenuHeight()), viewMatrix, projectionMatrix, projectionMatrix2, new Matrix4f());//mapMatrix);
-			} else if(!client.isMenuOpen() && hintTarget != null) {
+			} else if(!client.isMenuOpen() && hintTarget != null && !hovering) {
 				glClear(GL_DEPTH_BUFFER_BIT);
 				hudHelper.drawHint(overlayColor, viewMatrix, projectionMatrix, projectionMatrix2, hintTileX, hintTileY, hintAction, hintTarget, hintActor, hintIntersect);
 			}
