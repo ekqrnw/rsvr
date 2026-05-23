@@ -1346,7 +1346,7 @@ public class VRPlugin extends Plugin implements DrawCallbacks
 
 				client.setDrawCallbacks(this);
 				client.setGpuFlags(DrawCallbacks.GPU
-					| (computeMode == ComputeMode.NONE ? 0 : DrawCallbacks.HILLSKEW)
+					| (computeMode == ComputeMode.NONE ? 0 : DrawCallbacks.HILLSKEW) | DrawCallbacks.NORMALS
 				);
 				client.setExpandedMapLoading(config.expandedMapLoadingChunks());
 
