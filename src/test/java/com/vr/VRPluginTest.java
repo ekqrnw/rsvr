@@ -7,7 +7,7 @@ public class VRPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(VRPlugin.class);
+		ExternalPluginManager.loadBuiltin(VRPlugin2.class);
 		RuneLite.main(args);
 	}
 }
